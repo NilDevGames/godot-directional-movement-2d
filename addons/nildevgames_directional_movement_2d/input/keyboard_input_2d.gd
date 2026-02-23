@@ -1,7 +1,11 @@
+@icon("res://addons/nildevgames_directional_movement_2d/icons/keyboard_input_2d_icon.svg")
 extends Node
 class_name NilDevKeyboardInput2D
 
-func get_normalized_input_vector() -> Vector2:
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_DISABLED
+
+func get_input_vector() -> Vector2:
 	var v := Vector2.ZERO
 
 	if Input.is_action_pressed("move_right"):
