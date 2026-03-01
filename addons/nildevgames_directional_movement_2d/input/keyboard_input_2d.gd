@@ -18,3 +18,6 @@ func get_input_vector() -> Vector2:
 		v.y -= 1
         
 	return v.normalized()
+
+func _is_pressed() -> bool:
+	return Input.is_action_pressed("move_right") or Input.is_action_pressed("move_left") or Input.is_action_pressed("move_down") or Input.is_action_pressed("move_up")

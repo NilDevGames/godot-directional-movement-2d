@@ -1,0 +1,315 @@
+@tool
+@icon("res://addons/nildevgames_directional_movement_2d/icons/movement_2d_icon.svg")
+extends Node
+class_name NilDevMovement2D
+
+# exported configurations --------------------------------------------------
+@export var input_mode := NilDevInputMode.Mode.AUTO:
+    get:
+        return _input_mode
+    set(value):
+        if _input_mode == value:
+            return
+        _input_mode = value
+        notify_property_list_changed()
+        _update_input_nodes()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var speed := 200.0:
+    get:
+        return _speed
+    set(value):
+        if _speed == value:
+            return
+        _speed = value
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+# mouse-specific options
+@export var mouse_deadzone := 10.0:
+    get:
+        return _mouse_deadzone
+    set(value):
+        if _mouse_deadzone == value:
+            return
+        _mouse_deadzone = value
+        _apply_mouse_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var mouse_max_radius := 100.0:
+    get:
+        return _mouse_max_radius
+    set(value):
+        if _mouse_max_radius == value:
+            return
+        _mouse_max_radius = value
+        _apply_mouse_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var mouse_stop_drag_if_input_stopped := true:
+    get:
+        return _mouse_stop_drag_if_input_stopped
+    set(value):
+        if _mouse_stop_drag_if_input_stopped == value:
+            return
+        _mouse_stop_drag_if_input_stopped = value
+        _apply_mouse_settings()
+        notify_property_list_changed()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var mouse_motion_timeout := 0.1:
+    get:
+        return _mouse_motion_timeout
+    set(value):
+        if _mouse_motion_timeout == value:
+            return
+        _mouse_motion_timeout = value
+        _apply_mouse_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+# touch-specific options
+@export var touch_deadzone := 10.0:
+    get:
+        return _touch_deadzone
+    set(value):
+        if _touch_deadzone == value:
+            return
+        _touch_deadzone = value
+        _apply_touch_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var touch_max_radius := 100.0:
+    get:
+        return _touch_max_radius
+    set(value):
+        if _touch_max_radius == value:
+            return
+        _touch_max_radius = value
+        _apply_touch_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var touch_stop_drag_if_input_stopped := true:
+    get:
+        return _touch_stop_drag_if_input_stopped
+    set(value):
+        if _touch_stop_drag_if_input_stopped == value:
+            return
+        _touch_stop_drag_if_input_stopped = value
+        _apply_touch_settings()
+        notify_property_list_changed()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var touch_motion_timeout := 0.1:
+    get:
+        return _touch_motion_timeout
+    set(value):
+        if _touch_motion_timeout == value:
+            return
+        _touch_motion_timeout = value
+        _apply_touch_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+# internal node references -------------------------------------------------
+var _keyboard_node: NilDevKeyboardInput2D
+var _mouse_node: NilDevMouseInput2D
+var _touch_node: NilDevTouchInput2D
+
+var _input_mode := NilDevInputMode.Mode.AUTO
+var _speed := 200.0
+
+var _mouse_deadzone := 10.0
+var _mouse_max_radius := 100.0
+var _mouse_stop_drag_if_input_stopped := true
+var _mouse_motion_timeout := 0.1
+
+var _touch_deadzone := 10.0
+var _touch_max_radius := 100.0
+var _touch_stop_drag_if_input_stopped := true
+var _touch_motion_timeout := 0.1
+
+var _velocity := Vector2.ZERO
+
+# movement helpers ---------------------------------------------------------
+enum MovementType {
+    STOPPED,
+    HORIZONTAL,
+    VERTICAL,
+}
+
+# ---------------------------------------------------------------------------
+func _ready() -> void:
+    set_process_unhandled_input(false)
+    set_process_unhandled_key_input(false)
+    set_process(false)
+    set_physics_process(false)
+    set_process_input(true)
+    _update_input_nodes()
+
+# ---------------------------------------------------------------------------
+func _apply_mouse_settings() -> void:
+    if _mouse_node:
+        _mouse_node.deadzone = mouse_deadzone
+        _mouse_node.max_radius = mouse_max_radius
+        _mouse_node.stop_drag_if_input_stopped = mouse_stop_drag_if_input_stopped
+        _mouse_node.motion_timeout = mouse_motion_timeout
+
+func _apply_touch_settings() -> void:
+    if _touch_node:
+        _touch_node.deadzone = touch_deadzone
+        _touch_node.max_radius = touch_max_radius
+        _touch_node.stop_drag_if_input_stopped = touch_stop_drag_if_input_stopped
+        _touch_node.motion_timeout = touch_motion_timeout
+
+# ---------------------------------------------------------------------------
+func _ensure_keyboard_node() -> void:
+    if not _keyboard_node or not is_instance_valid(_keyboard_node):
+        _keyboard_node = NilDevKeyboardInput2D.new()
+        _keyboard_node.name = "KeyboardInput"
+        add_child(_keyboard_node)
+
+func _ensure_mouse_node() -> void:
+    if not _mouse_node or not is_instance_valid(_mouse_node):
+        _mouse_node = NilDevMouseInput2D.new()
+        _mouse_node.name = "MouseInput"
+        add_child(_mouse_node)
+        _apply_mouse_settings()
+
+func _ensure_touch_node() -> void:
+    if not _touch_node or not is_instance_valid(_touch_node):
+        _touch_node = NilDevTouchInput2D.new()
+        _touch_node.name = "TouchInput"
+        add_child(_touch_node)
+        _apply_touch_settings()
+
+func _update_input_nodes() -> void:
+    match input_mode:
+        NilDevInputMode.Mode.KEYBOARD:
+            _ensure_keyboard_node()
+            if _mouse_node and is_instance_valid(_mouse_node):
+                _mouse_node.queue_free()
+            if _touch_node and is_instance_valid(_touch_node):
+                _touch_node.queue_free()
+        NilDevInputMode.Mode.MOUSE:
+            _ensure_mouse_node()
+            if _keyboard_node and is_instance_valid(_keyboard_node):
+                _keyboard_node.queue_free()
+            if _touch_node and is_instance_valid(_touch_node):
+                _touch_node.queue_free()
+        NilDevInputMode.Mode.TOUCH:
+            _ensure_touch_node()
+            if _keyboard_node and is_instance_valid(_keyboard_node):
+                _keyboard_node.queue_free()
+            if _mouse_node and is_instance_valid(_mouse_node):
+                _mouse_node.queue_free()
+        NilDevInputMode.Mode.AUTO:
+            _ensure_keyboard_node()
+            _ensure_mouse_node()
+            _ensure_touch_node()
+
+# ---------------------------------------------------------------------------
+
+func get_input_vector() -> Vector2:
+    match input_mode:
+        NilDevInputMode.Mode.KEYBOARD:
+            return _keyboard_node.get_input_vector()
+        NilDevInputMode.Mode.MOUSE:
+            return _mouse_node.get_input_vector()
+        NilDevInputMode.Mode.TOUCH:
+            return _touch_node.get_input_vector()
+        NilDevInputMode.Mode.AUTO:
+            # priority: touch > mouse > keyboard; first non-zero wins
+            if _touch_node.is_pressed:
+                return _touch_node.get_input_vector()
+            if _mouse_node.is_pressed:
+                return _mouse_node.get_input_vector()
+            return _keyboard_node.get_input_vector()
+    return Vector2.ZERO
+
+func calculate_movement(delta: float) -> Vector2:
+    _velocity = get_input_vector()
+    if _velocity != Vector2.ZERO:
+        _velocity *= speed
+    return _velocity * delta
+
+var velocity: Vector2:
+    get:
+        return _velocity
+
+var movement_type: MovementType:
+    get:
+        if _velocity == Vector2.ZERO:
+            return MovementType.STOPPED
+        if abs(_velocity.x) > abs(_velocity.y):
+            return MovementType.HORIZONTAL
+        return MovementType.VERTICAL
+
+var moving_left: bool:
+    get:
+        return _velocity.x < 0
+
+var moving_right: bool:
+    get:
+        return _velocity.x > 0
+
+var moving_up: bool:
+    get:
+        return _velocity.y < 0
+
+var moving_down: bool:
+    get:
+        return _velocity.y > 0
+
+
+# ---------------------------------------------------------------------------
+func _validate_property(property: Dictionary) -> void:
+    var mode := input_mode
+    if property.name.begins_with("mouse_"):
+        if mode == NilDevInputMode.Mode.TOUCH or mode == NilDevInputMode.Mode.KEYBOARD:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+            return
+        if property.name == "mouse_motion_timeout" and not mouse_stop_drag_if_input_stopped:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+    elif property.name.begins_with("touch_"):
+        if mode == NilDevInputMode.Mode.MOUSE or mode == NilDevInputMode.Mode.KEYBOARD:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+            return
+        if property.name == "touch_motion_timeout" and not touch_stop_drag_if_input_stopped:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+
+# ---------------------------------------------------------------------------
+func _get_configuration_warnings() -> PackedStringArray:
+    var w := PackedStringArray()
+
+    if speed <= 0:
+        w.append("Speed must be greater than zero.")
+
+    if input_mode == NilDevInputMode.Mode.KEYBOARD:
+        return w
+
+    if input_mode == NilDevInputMode.Mode.MOUSE or input_mode == NilDevInputMode.Mode.AUTO:
+        if mouse_deadzone < 0.0:
+            w.append("Mouse deadzone cannot be negative.")
+        if mouse_max_radius < 10:
+            w.append("Mouse max radius should be at least 10.")
+        if mouse_motion_timeout < 0.1:
+           w.append("Mouse motion timeout should be at least 0.1 seconds.")
+
+    if input_mode == NilDevInputMode.Mode.TOUCH or input_mode == NilDevInputMode.Mode.AUTO:
+        if touch_deadzone < 0.0:
+            w.append("Touch deadzone cannot be negative.")
+        if touch_max_radius < 10:
+            w.append("Touch max radius should be at least 10.")
+        if touch_motion_timeout < 0.1:
+            w.append("Touch motion timeout should be at least 0.1 seconds.")
+    return w
+
+# ---------------------------------------------------------------------------

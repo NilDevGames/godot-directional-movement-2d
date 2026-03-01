@@ -24,14 +24,14 @@ class_name NilDevDragBasedInput2D
         
         if Engine.is_editor_hint():
             update_configuration_warnings()
-@export var stop_drag_if_mouse_stopped := true:
+@export var stop_drag_if_input_stopped := true:
     get:
-        return _stop_drag_if_mouse_stopped
+        return _stop_drag_if_input_stopped
     set(value):
-        if _stop_drag_if_mouse_stopped == value:
+        if _stop_drag_if_input_stopped == value:
             return
 
-        _stop_drag_if_mouse_stopped = value
+        _stop_drag_if_input_stopped = value
         notify_property_list_changed()
 @export var motion_timeout := 0.1:
     get:
@@ -54,7 +54,7 @@ var _last_motion_time := -1.0
 
 var _deadzone := 10.0
 var _max_radius := 100.0
-var _stop_drag_if_mouse_stopped := true
+var _stop_drag_if_input_stopped := true
 var _motion_timeout := 0.1
 
 func _ready() -> void:
@@ -65,7 +65,7 @@ func _ready() -> void:
     set_process_input(true)
 
 func _physics_process(delta: float) -> void:
-    if _stop_drag_if_mouse_stopped and _dragging and _last_motion_time != -1.0:
+    if _stop_drag_if_input_stopped and _dragging and _last_motion_time != -1.0:
         var current_time = Time.get_ticks_msec() / 1000.0
 
         if current_time - _last_motion_time > _motion_timeout:
@@ -92,7 +92,7 @@ func _update_drag(position: Vector2) -> void:
 func _start_drag(position: Vector2) -> void:
     _drag_origin = position
     _dragging = true
-    set_physics_process(_stop_drag_if_mouse_stopped)
+    set_physics_process(_stop_drag_if_input_stopped)
 
 func _stop_drag() -> void:
     _dragging = false
@@ -109,7 +109,10 @@ func _resume(position: Vector2) -> void:
     _paused = false
     _drag_origin = position
     _last_motion_time = Time.get_ticks_msec() / 1000.0
-    set_physics_process(stop_drag_if_mouse_stopped)
+    set_physics_process(stop_drag_if_input_stopped)
+
+func _is_pressed() -> bool:
+    return _dragging and not _paused
 
 # Editor validation
 func _get_configuration_warnings() -> PackedStringArray:
@@ -125,5 +128,5 @@ func _get_configuration_warnings() -> PackedStringArray:
     return warnings
 
 func _validate_property(property: Dictionary) -> void:
-    if property.name == "motion_timeout" and not stop_drag_if_mouse_stopped:
+    if property.name == "motion_timeout" and not stop_drag_if_input_stopped:
         property.usage = PROPERTY_USAGE_NO_EDITOR
