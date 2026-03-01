@@ -1,6 +1,6 @@
 @icon("res://addons/nildevgames_directional_movement_2d/icons/keyboard_input_2d_icon.svg")
-extends Node
 class_name NilDevKeyboardInput2D
+extends NilDevDirectionalInput2D
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_DISABLED
