@@ -1,5 +1,10 @@
-# Exclude all root-level files and folders from git archive (GitHub releases, git archive zips)
-/* export-ignore
+# Exclude root-level files and folders from git archive (GitHub releases, git archive zips)
+/.gitignore export-ignore
+/.godot/ export-ignore
+/LICENSE export-ignore
+/project.godot export-ignore
+/README.md export-ignore
 
-# Include only the specific addon folder in archives (other addons folders will be excluded)
+# Exclude all addon folders by default, then include only the specific one
+/addons/* export-ignore
 /addons/nildevgames_directional_movement_2d/ -export-ignore
