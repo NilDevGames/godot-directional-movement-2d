@@ -2,4 +2,4 @@
 /* export-ignore
 
 # Include only the addon folder in archives
-/addons/nildevgames_directional_movement_2d/ -export-ignore
+/addons/nildevgames_directional_movement_2d/* -export-ignore
