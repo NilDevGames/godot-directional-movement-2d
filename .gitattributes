@@ -1,4 +1,5 @@
 # Exclude root-level files and folders from git archive (GitHub releases, git archive zips)
+/.gitattributes export-ignore
 /.gitignore export-ignore
 /.godot/ export-ignore
 /LICENSE export-ignore
