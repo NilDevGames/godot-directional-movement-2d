@@ -196,20 +196,26 @@ func _update_input_nodes() -> void:
             _ensure_keyboard_node()
             if _mouse_node and is_instance_valid(_mouse_node):
                 _mouse_node.queue_free()
+                _mouse_node = null
             if _touch_node and is_instance_valid(_touch_node):
                 _touch_node.queue_free()
+                _touch_node = null
         NilDevInputMode.Mode.MOUSE:
             _ensure_mouse_node()
             if _keyboard_node and is_instance_valid(_keyboard_node):
                 _keyboard_node.queue_free()
+                _keyboard_node = null
             if _touch_node and is_instance_valid(_touch_node):
                 _touch_node.queue_free()
+                _touch_node = null
         NilDevInputMode.Mode.TOUCH:
             _ensure_touch_node()
             if _keyboard_node and is_instance_valid(_keyboard_node):
                 _keyboard_node.queue_free()
+                _keyboard_node = null
             if _mouse_node and is_instance_valid(_mouse_node):
                 _mouse_node.queue_free()
+                _mouse_node = null
         NilDevInputMode.Mode.AUTO:
             _ensure_keyboard_node()
             _ensure_mouse_node()
