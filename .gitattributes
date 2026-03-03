@@ -10,6 +10,9 @@
 /tests/ export-ignore
 /.gutconfig.json export-ignore
 
+# Exclude example scenes and scripts
+/examples/ export-ignore
+
 # Exclude all addon folders by default, then include only the specific one
 /addons/* export-ignore
 /addons/nildevgames_directional_movement_2d/ -export-ignore
