@@ -4,31 +4,41 @@ extends GutTest
 ## NilDevMovement2D creates child input nodes in _ready(), so it must be added
 ## to the scene tree. We use add_child_autofree() throughout.
 
-var _node: NilDevMovement2D
+const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2d/internals/keyboard_actions_2d.gd")
+const ACTION_RIGHT := KeyboardActions.DEFAULT_MOVE_RIGHT_ACTION
+const ACTION_LEFT := KeyboardActions.DEFAULT_MOVE_LEFT_ACTION
+const ACTION_UP := KeyboardActions.DEFAULT_MOVE_UP_ACTION
+const ACTION_DOWN := KeyboardActions.DEFAULT_MOVE_DOWN_ACTION
+const ACTIONS:Array[StringName] = [ACTION_RIGHT, ACTION_LEFT, ACTION_UP, ACTION_DOWN]
 
-const ACTIONS = ["move_right", "move_left", "move_up", "move_down"]
+var _node: NilDevMovement2D
+var _owned_actions: Array[StringName] = []
+var _release_actions: Array[StringName] = []
 
 
 func before_all():
 	for action_name in ACTIONS:
 		if not InputMap.has_action(action_name):
-			InputMap.add_action(action_name)
-			var ev = InputEventKey.new()
-			match action_name:
-				"move_right": ev.keycode = KEY_D
-				"move_left":  ev.keycode = KEY_A
-				"move_up":    ev.keycode = KEY_W
-				"move_down":  ev.keycode = KEY_S
-			InputMap.action_add_event(action_name, ev)
+			_owned_actions.append(action_name)
+
+	KeyboardActions.ensure_runtime_actions(
+		KeyboardActions.build_configured_actions(
+			ACTION_RIGHT,
+			ACTION_LEFT,
+			ACTION_UP,
+			ACTION_DOWN
+		)
+	)
 
 
 func after_all():
-	for action_name in ACTIONS:
+	for action_name in _owned_actions:
 		if InputMap.has_action(action_name):
 			InputMap.erase_action(action_name)
 
 
 func before_each():
+	_release_actions = ACTIONS.duplicate()
 	_node = NilDevMovement2D.new()
 	add_child_autofree(_node)
 	# Wait a frame so _ready() and child nodes are fully set up
@@ -36,9 +46,16 @@ func before_each():
 
 
 func after_each():
-	for action_name in ACTIONS:
+	for action_name in _release_actions:
 		if InputMap.has_action(action_name):
 			Input.action_release(action_name)
+
+
+func _remember_owned_action(action_name: StringName) -> void:
+	if not InputMap.has_action(action_name) and not _owned_actions.has(action_name):
+		_owned_actions.append(action_name)
+	if not _release_actions.has(action_name):
+		_release_actions.append(action_name)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -79,6 +96,12 @@ func test_default_speed():
 
 func test_default_velocity_is_zero():
 	assert_eq(_node.velocity, Vector2.ZERO, "Default velocity should be ZERO")
+
+func test_default_keyboard_action_names_are_prefixed():
+	assert_eq(_node.keyboard_move_right_action, ACTION_RIGHT)
+	assert_eq(_node.keyboard_move_left_action, ACTION_LEFT)
+	assert_eq(_node.keyboard_move_up_action, ACTION_UP)
+	assert_eq(_node.keyboard_move_down_action, ACTION_DOWN)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -220,6 +243,31 @@ func test_settings_applied_on_node_creation():
 	assert_eq(_node._mouse_node.deadzone, 42.0, "Settings applied on node creation")
 	assert_eq(_node._mouse_node.max_radius, 250.0)
 
+func test_keyboard_action_settings_propagated():
+	var custom_right := StringName("nildevgames_test_movement_right_%s" % get_instance_id())
+	var custom_left := StringName("nildevgames_test_movement_left_%s" % get_instance_id())
+	var custom_up := StringName("nildevgames_test_movement_up_%s" % get_instance_id())
+	var custom_down := StringName("nildevgames_test_movement_down_%s" % get_instance_id())
+	_remember_owned_action(custom_right)
+	_remember_owned_action(custom_left)
+	_remember_owned_action(custom_up)
+	_remember_owned_action(custom_down)
+
+	_node.keyboard_move_right_action = custom_right
+	_node.keyboard_move_left_action = custom_left
+	_node.keyboard_move_up_action = custom_up
+	_node.keyboard_move_down_action = custom_down
+
+	assert_eq(_node._keyboard_node.move_right_action, custom_right)
+	assert_eq(_node._keyboard_node.move_left_action, custom_left)
+	assert_eq(_node._keyboard_node.move_up_action, custom_up)
+	assert_eq(_node._keyboard_node.move_down_action, custom_down)
+	assert_true(InputMap.has_action(custom_right))
+
+	Input.action_press(custom_right)
+	var v = _node.get_input_vector()
+	assert_almost_eq(v, Vector2(1, 0), Vector2(0.001, 0.001), "Facade keyboard override should drive the keyboard child")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # get_input_vector — PER MODE
@@ -228,7 +276,7 @@ func test_settings_applied_on_node_creation():
 func test_get_input_vector_keyboard_mode():
 	_node.input_mode = NilDevInputMode.Mode.KEYBOARD
 	await wait_physics_frames(2)
-	Input.action_press("move_right")
+	Input.action_press(ACTION_RIGHT)
 	var v = _node.get_input_vector()
 	assert_almost_eq(v, Vector2(1, 0), Vector2(0.001, 0.001), "Keyboard mode returns keyboard vector")
 
@@ -252,13 +300,13 @@ func test_get_input_vector_touch_mode():
 # ── AUTO mode priority: touch > mouse > keyboard ─────────────────────────────
 
 func test_auto_priority_keyboard_only():
-	Input.action_press("move_right")
+	Input.action_press(ACTION_RIGHT)
 	var v = _node.get_input_vector()
 	assert_almost_eq(v, Vector2(1, 0), Vector2(0.001, 0.001),
 		"AUTO: keyboard input when no touch/mouse")
 
 func test_auto_priority_mouse_over_keyboard():
-	Input.action_press("move_right")
+	Input.action_press(ACTION_RIGHT)
 	# Start a mouse drag (leftward to distinguish from keyboard)
 	_node._mouse_node._start_drag(Vector2(200, 100))
 	_node._mouse_node._update_drag(Vector2(100, 100))
@@ -277,7 +325,7 @@ func test_auto_priority_touch_over_mouse():
 	assert_almost_eq(v.x, 0.0, 0.001, "X near zero since touch is downward")
 
 func test_auto_priority_touch_over_keyboard_and_mouse():
-	Input.action_press("move_left")
+	Input.action_press(ACTION_LEFT)
 	_node._mouse_node._start_drag(Vector2(100, 100))
 	_node._mouse_node._update_drag(Vector2(200, 100))
 	_node._touch_node._start_drag(Vector2(100, 100))
@@ -287,7 +335,7 @@ func test_auto_priority_touch_over_keyboard_and_mouse():
 
 func test_auto_falls_to_keyboard_when_no_drag():
 	# No mouse/touch drag active
-	Input.action_press("move_down")
+	Input.action_press(ACTION_DOWN)
 	var v = _node.get_input_vector()
 	assert_almost_eq(v, Vector2(0, 1), Vector2(0.001, 0.001),
 		"AUTO: keyboard used when no touch/mouse active")
@@ -308,7 +356,7 @@ func test_calculate_movement_zero_input():
 
 func test_calculate_movement_with_input():
 	_node.speed = 200.0
-	Input.action_press("move_right")
+	Input.action_press(ACTION_RIGHT)
 	var delta = 0.016
 	var result = _node.calculate_movement(delta)
 
@@ -322,8 +370,8 @@ func test_calculate_movement_with_input():
 
 func test_calculate_movement_diagonal():
 	_node.speed = 100.0
-	Input.action_press("move_right")
-	Input.action_press("move_down")
+	Input.action_press(ACTION_RIGHT)
+	Input.action_press(ACTION_DOWN)
 	var delta = 1.0
 	var result = _node.calculate_movement(delta)
 
@@ -333,7 +381,7 @@ func test_calculate_movement_diagonal():
 	assert_almost_eq(result, expected_velocity * delta, Vector2(0.1, 0.1))
 
 func test_calculate_movement_updates_velocity_side_effect():
-	Input.action_press("move_up")
+	Input.action_press(ACTION_UP)
 	_node.calculate_movement(0.016)
 	assert_ne(_node.velocity, Vector2.ZERO, "_velocity should be updated as side effect")
 
@@ -345,7 +393,7 @@ func test_calculate_movement_updates_velocity_side_effect():
 # ── velocity getter ───────────────────────────────────────────────────────────
 
 func test_velocity_reflects_calculate_movement():
-	Input.action_press("move_right")
+	Input.action_press(ACTION_RIGHT)
 	_node.calculate_movement(0.016)
 	assert_gt(_node.velocity.x, 0.0, "velocity.x should be positive after rightward input")
 
@@ -450,6 +498,20 @@ func test_validate_property_keyboard_hides_mouse():
 	assert_eq(prop.usage, PROPERTY_USAGE_NO_EDITOR,
 		"KEYBOARD mode should hide mouse_ properties")
 
+func test_validate_property_mouse_hides_keyboard():
+	_node._input_mode = NilDevInputMode.Mode.MOUSE
+	var prop = {"name": "keyboard_move_right_action", "usage": PROPERTY_USAGE_DEFAULT}
+	_node._validate_property(prop)
+	assert_eq(prop.usage, PROPERTY_USAGE_NO_EDITOR,
+		"MOUSE mode should hide keyboard_ properties")
+
+func test_validate_property_auto_shows_keyboard():
+	_node._input_mode = NilDevInputMode.Mode.AUTO
+	var prop = {"name": "keyboard_move_right_action", "usage": PROPERTY_USAGE_DEFAULT}
+	_node._validate_property(prop)
+	assert_eq(prop.usage, PROPERTY_USAGE_DEFAULT,
+		"AUTO mode should keep keyboard_ properties visible")
+
 func test_validate_property_keyboard_hides_touch():
 	_node._input_mode = NilDevInputMode.Mode.KEYBOARD
 	var prop = {"name": "touch_deadzone", "usage": PROPERTY_USAGE_DEFAULT}
@@ -536,6 +598,13 @@ func test_keyboard_mode_only_checks_speed():
 	_node._speed = 100.0
 	var w = _node._get_configuration_warnings()
 	assert_eq(w.size(), 0, "KEYBOARD with valid speed → no warnings")
+
+func test_keyboard_mode_warns_for_custom_keyboard_actions():
+	_node._input_mode = NilDevInputMode.Mode.KEYBOARD
+	_node._speed = 100.0
+	_node.keyboard_move_right_action = &"move_right"
+	var w = _node._get_configuration_warnings()
+	assert_has(w, "Custom keyboard action names are created at runtime only. Add them to Project Settings -> Input Map if you want them persisted.")
 
 func test_mouse_mode_checks_mouse_deadzone():
 	_node._input_mode = NilDevInputMode.Mode.MOUSE

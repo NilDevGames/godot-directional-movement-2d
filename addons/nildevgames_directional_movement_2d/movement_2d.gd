@@ -3,6 +3,8 @@
 extends Node
 class_name NilDevMovement2D
 
+const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2d/internals/keyboard_actions_2d.gd")
+
 # exported configurations --------------------------------------------------
 @export var input_mode := NilDevInputMode.Mode.AUTO:
     get:
@@ -23,6 +25,54 @@ class_name NilDevMovement2D
         if _speed == value:
             return
         _speed = value
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var keyboard_move_right_action: StringName = KeyboardActions.DEFAULT_MOVE_RIGHT_ACTION:
+    get:
+        return _keyboard_move_right_action
+    set(value):
+        var normalized_value := KeyboardActions.normalize_action_name(value, KeyboardActions.DEFAULT_MOVE_RIGHT_ACTION)
+        if _keyboard_move_right_action == normalized_value:
+            return
+        _keyboard_move_right_action = normalized_value
+        _apply_keyboard_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var keyboard_move_left_action: StringName = KeyboardActions.DEFAULT_MOVE_LEFT_ACTION:
+    get:
+        return _keyboard_move_left_action
+    set(value):
+        var normalized_value := KeyboardActions.normalize_action_name(value, KeyboardActions.DEFAULT_MOVE_LEFT_ACTION)
+        if _keyboard_move_left_action == normalized_value:
+            return
+        _keyboard_move_left_action = normalized_value
+        _apply_keyboard_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var keyboard_move_up_action: StringName = KeyboardActions.DEFAULT_MOVE_UP_ACTION:
+    get:
+        return _keyboard_move_up_action
+    set(value):
+        var normalized_value := KeyboardActions.normalize_action_name(value, KeyboardActions.DEFAULT_MOVE_UP_ACTION)
+        if _keyboard_move_up_action == normalized_value:
+            return
+        _keyboard_move_up_action = normalized_value
+        _apply_keyboard_settings()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var keyboard_move_down_action: StringName = KeyboardActions.DEFAULT_MOVE_DOWN_ACTION:
+    get:
+        return _keyboard_move_down_action
+    set(value):
+        var normalized_value := KeyboardActions.normalize_action_name(value, KeyboardActions.DEFAULT_MOVE_DOWN_ACTION)
+        if _keyboard_move_down_action == normalized_value:
+            return
+        _keyboard_move_down_action = normalized_value
+        _apply_keyboard_settings()
         if Engine.is_editor_hint():
             update_configuration_warnings()
 
@@ -137,6 +187,10 @@ var _touch_stop_drag_if_input_stopped := true
 var _touch_motion_timeout := 0.1
 
 var _velocity := Vector2.ZERO
+var _keyboard_move_right_action := KeyboardActions.DEFAULT_MOVE_RIGHT_ACTION
+var _keyboard_move_left_action := KeyboardActions.DEFAULT_MOVE_LEFT_ACTION
+var _keyboard_move_up_action := KeyboardActions.DEFAULT_MOVE_UP_ACTION
+var _keyboard_move_down_action := KeyboardActions.DEFAULT_MOVE_DOWN_ACTION
 
 # movement helpers ---------------------------------------------------------
 enum MovementType {
@@ -162,6 +216,13 @@ func _apply_mouse_settings() -> void:
         _mouse_node.stop_drag_if_input_stopped = mouse_stop_drag_if_input_stopped
         _mouse_node.motion_timeout = mouse_motion_timeout
 
+func _apply_keyboard_settings() -> void:
+    if _keyboard_node:
+        _keyboard_node.move_right_action = keyboard_move_right_action
+        _keyboard_node.move_left_action = keyboard_move_left_action
+        _keyboard_node.move_up_action = keyboard_move_up_action
+        _keyboard_node.move_down_action = keyboard_move_down_action
+
 func _apply_touch_settings() -> void:
     if _touch_node:
         _touch_node.deadzone = touch_deadzone
@@ -174,6 +235,7 @@ func _ensure_keyboard_node() -> void:
     if not _keyboard_node or not is_instance_valid(_keyboard_node):
         _keyboard_node = NilDevKeyboardInput2D.new()
         _keyboard_node.name = "KeyboardInput"
+        _apply_keyboard_settings()
         add_child(_keyboard_node)
 
 func _ensure_mouse_node() -> void:
@@ -278,7 +340,11 @@ var moving_down: bool:
 # ---------------------------------------------------------------------------
 func _validate_property(property: Dictionary) -> void:
     var mode := input_mode
-    if property.name.begins_with("mouse_"):
+    if property.name.begins_with("keyboard_"):
+        if mode == NilDevInputMode.Mode.MOUSE or mode == NilDevInputMode.Mode.TOUCH:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+            return
+    elif property.name.begins_with("mouse_"):
         if mode == NilDevInputMode.Mode.TOUCH or mode == NilDevInputMode.Mode.KEYBOARD:
             property.usage = PROPERTY_USAGE_NO_EDITOR
             return
@@ -297,6 +363,9 @@ func _get_configuration_warnings() -> PackedStringArray:
 
     if speed <= 0:
         w.append("Speed must be greater than zero.")
+
+    if (input_mode == NilDevInputMode.Mode.KEYBOARD or input_mode == NilDevInputMode.Mode.AUTO) and KeyboardActions.uses_custom_actions(_get_keyboard_actions()):
+        w.append("Custom keyboard action names are created at runtime only. Add them to Project Settings -> Input Map if you want them persisted.")
 
     if input_mode == NilDevInputMode.Mode.KEYBOARD:
         return w
@@ -319,3 +388,11 @@ func _get_configuration_warnings() -> PackedStringArray:
     return w
 
 # ---------------------------------------------------------------------------
+
+func _get_keyboard_actions() -> Dictionary:
+    return KeyboardActions.build_configured_actions(
+        keyboard_move_right_action,
+        keyboard_move_left_action,
+        keyboard_move_up_action,
+        keyboard_move_down_action
+    )

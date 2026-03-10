@@ -16,7 +16,10 @@ Cross-platform 2D directional movement input for Godot (keyboard, mouse, touch)
 
 ## Installation
 
-Copy the `addons/nildevgames_directional_movement_2d` folder into your project's `addons/` directory and enable the plugin in Project Settings -> Plugins (optional). You can also use the scripts without enabling the plugin by instancing the scripts directly.
+Copy the `addons/nildevgames_directional_movement_2d` folder into your project's `addons/` directory.
+
+- If you enable the plugin in Project Settings -> Plugins, it seeds four default keyboard actions into Project Settings -> Input Map.
+- If you use the scripts without enabling the plugin, missing configured keyboard actions are still created automatically at runtime.
 
 ## Quick Start
 
@@ -51,22 +54,31 @@ func _physics_process(delta: float) -> void:
 
 ## InputMap (recommended)
 
-The keyboard input handler expects four actions. Recommended bindings (add via Project Settings -> Input Map):
+The keyboard input handler uses four configurable actions. By default, the addon uses prefixed action names to avoid collisions and binds both WASD and arrow keys:
 
-- `move_right`: D, Right
-- `move_left`: A, Left
-- `move_up`: W, Up
-- `move_down`: S, Down
+- `nildevgames_move_right`: D, Right
+- `nildevgames_move_left`: A, Left
+- `nildevgames_move_up`: W, Up
+- `nildevgames_move_down`: S, Down
 
-You can add them at runtime with code (example):
+`NilDevKeyboardInput2D` exposes `move_right_action`, `move_left_action`, `move_up_action`, and `move_down_action` so you can override the action names per node. `NilDevMovement2D` mirrors the same settings with `keyboard_move_right_action`, `keyboard_move_left_action`, `keyboard_move_up_action`, and `keyboard_move_down_action` because it auto-creates its keyboard child for you.
+
+If you want to add the default actions manually in Godot 4, use `physical_keycode` and add both bindings per direction:
 
 ```gdscript
-if not InputMap.has_action("move_right"):
-		InputMap.add_action("move_right")
-		var ev := InputEventKey.new()
-		ev.scancode = Key.D
-		InputMap.action_add_event("move_right", ev)
+if not InputMap.has_action("nildevgames_move_right"):
+	InputMap.add_action("nildevgames_move_right")
+
+	var wasd_event := InputEventKey.new()
+	wasd_event.physical_keycode = Key.D
+	InputMap.action_add_event("nildevgames_move_right", wasd_event)
+
+	var arrow_event := InputEventKey.new()
+	arrow_event.physical_keycode = Key.Right
+	InputMap.action_add_event("nildevgames_move_right", arrow_event)
 ```
+
+If you override the action names, the addon will auto-create those custom names at runtime when they are missing. Add custom names to Project Settings -> Input Map yourself if you want them to be visible and persisted in the editor.
 
 ## API Reference (summary)
 
@@ -85,7 +97,7 @@ Node: `NilDevMovement2D` (`addons/nildevgames_directional_movement_2d/movement_2
 	- `moving_left`, `moving_right`, `moving_up`, `moving_down` — directional booleans.
 
 Input handlers (brief):
-- `NilDevKeyboardInput2D` — reads `move_*` InputMap actions. (`addons/nildevgames_directional_movement_2d/input/keyboard_input_2d.gd`)
+- `NilDevKeyboardInput2D` — reads configurable InputMap actions, defaulting to `nildevgames_move_*`. (`addons/nildevgames_directional_movement_2d/input/keyboard_input_2d.gd`)
 - `NilDevMouseInput2D` — drag-based mouse input with deadzone and max radius. (`addons/nildevgames_directional_movement_2d/input/mouse_input_2d.gd`)
 - `NilDevTouchInput2D` — similar to mouse but handles screen touch events. (`addons/nildevgames_directional_movement_2d/input/touch_input_2d.gd`)
 
@@ -113,7 +125,8 @@ If you prefer a ready-to-run demo the `examples/` folder (not committed to archi
 
 ## Troubleshooting
 
-- Ensure InputMap actions are defined for keyboard control.
+- The default `nildevgames_move_*` actions are created automatically, with arrows + WASD, when the plugin is enabled or when the keyboard node first runs.
+- If you override keyboard action names, the addon will create them at runtime when missing. Add them manually to Project Settings -> Input Map if you want them persisted in the editor.
 - If using `AUTO` mode and input seems ignored, confirm touch/mouse events aren’t being captured by UI elements first.
 - The input nodes are auto-created on `_ready()` by `NilDevMovement2D`. Avoid switching `input_mode` every frame.
 
