@@ -5,7 +5,7 @@
 /LICENSE export-ignore
 /project.godot export-ignore
 /README.md export-ignore
-/icon.png export-ignore
+/icon.jpg export-ignore
 
 # Exclude tests
 /tests/ export-ignore
