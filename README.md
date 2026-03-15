@@ -37,7 +37,7 @@ func _physics_process(delta: float) -> void:
 	# `calculate_movement(delta)` returns a frame displacement (pixels to move this frame).
 	# Physics APIs like `move_and_slide()` expect a velocity (pixels/sec), so convert displacement -> velocity.
 	var displacement: Vector2 = mover.calculate_movement(delta)
-	velocity = (delta > 0.0) ? displacement / delta : Vector2.ZERO
+	velocity = displacement / delta if delta > 0.0 else Vector2.ZERO
 	move_and_slide()
 ```
 
@@ -49,7 +49,7 @@ extends Node2D
 @onready var mover := $NilDevMovement2D
 
 func _physics_process(delta: float) -> void:
-		position += mover.calculate_movement(delta)
+	position += mover.calculate_movement(delta)
 ```
 
 ## InputMap (recommended)
@@ -121,7 +121,13 @@ Canonical test-based examples live under `tests/unit/` and show how to simulate 
 - [tests/unit/test_movement_2d.gd](tests/unit/test_movement_2d.gd)
 - [tests/unit/test_touch_input_2d.gd](tests/unit/test_touch_input_2d.gd)
 
-If you prefer a ready-to-run demo the `examples/` folder (not committed to archives) will contain a small `player_example.tscn` and `player_example.gd` showing integration.
+A runnable repository example lives under `examples/`:
+- [examples/player_example.tscn](examples/player_example.tscn) — minimal `Node2D` integration and the default main scene for this repository project.
+- [examples/player_example.gd](examples/player_example.gd) — script for the position-based `Node2D` demo.
+- [examples/player_character_body_example.tscn](examples/player_character_body_example.tscn) — `CharacterBody2D` demo using `velocity` plus `move_and_slide()`.
+- [examples/player_character_body_example.gd](examples/player_character_body_example.gd) — script for the physics-body demo.
+
+The `examples/` folder is kept in the repository for source checkouts and excluded from packaged addon archives via `.gitattributes`.
 
 ## Troubleshooting
 

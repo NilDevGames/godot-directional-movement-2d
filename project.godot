@@ -11,8 +11,9 @@ config_version=5
 [application]
 
 config/name="NilDevGames Directional Movement 2D"
+run/main_scene="res://examples/player_example.tscn"
 config/features=PackedStringArray("4.6")
 
 [editor]
 
-main_scene=""
+main_scene="res://examples/player_example.tscn"
