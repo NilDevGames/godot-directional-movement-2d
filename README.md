@@ -127,6 +127,8 @@ A runnable repository example lives under `examples/`:
 - [examples/player_character_body_example.tscn](examples/player_character_body_example.tscn) — `CharacterBody2D` demo using `velocity` plus `move_and_slide()`.
 - [examples/player_character_body_example.gd](examples/player_character_body_example.gd) — script for the physics-body demo.
 
+Both runnable examples include a live performance panel that shows the whole demo scene's FPS, renderer/GPU information, RAM/VRAM usage, script frame time, fixed physics step time, 2D canvas draw stats, and GPU render-budget load. The panel is there to make the addon's runtime footprint obvious in practice without implying a synthetic "CPU load": `NilDevMovement2D` only resolves an input vector and applies scalar math each frame, so the example stays well within budget unless the surrounding scene work is the bottleneck.
+
 The `examples/` folder is kept in the repository for source checkouts and excluded from packaged addon archives via `.gitattributes`.
 
 ## Troubleshooting

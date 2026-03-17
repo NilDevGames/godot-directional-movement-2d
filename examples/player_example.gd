@@ -1,14 +1,18 @@
 extends Node2D
 
 const PLAYER_RADIUS := 20.0
+const ExamplePerformancePanel = preload("res://examples/example_performance_panel.gd")
 
 @onready var mover: NilDevMovement2D = $NilDevMovement2D
 @onready var visuals: Node2D = $Visuals
 @onready var status_label: Label = $Hud/StatusLabel
 
+var _performance_panel = ExamplePerformancePanel.new()
+
 
 func _ready() -> void:
 	position = get_viewport_rect().size * 0.5
+	_performance_panel.setup(get_viewport())
 	_update_status()
 
 
@@ -28,12 +32,13 @@ func _clamp_to_viewport() -> void:
 
 func _update_status() -> void:
 	var input_vector := mover.get_input_vector()
-	status_label.text = "Move: WASD / Arrow keys\nDrag: Left mouse button or touch\nMode: %s\nInput: (%.2f, %.2f)\nVelocity: (%.1f, %.1f)" % [
+	status_label.text = "Move: WASD / Arrow keys\nDrag: Left mouse button or touch\nMode: %s\nInput: (%.2f, %.2f)\nVelocity: (%.1f, %.1f)\n\n%s" % [
 		_get_mode_name(mover.input_mode),
 		input_vector.x,
 		input_vector.y,
 		mover.velocity.x,
 		mover.velocity.y,
+		_performance_panel.get_text(),
 	]
 
 
