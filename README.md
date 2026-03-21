@@ -7,6 +7,7 @@ Cross-platform 2D directional movement input for Godot (keyboard, mouse, touch)
 
 **Key features**
 - Automatic input mode selection (`AUTO`, `KEYBOARD`, `MOUSE`, `TOUCH`).
+- Optional cardinal speed mode for asymmetric 4-direction movement tuning.
 - Drag-based mouse and touch input with deadzone / radius tuning.
 - Simple integration: call `calculate_movement(delta)` and apply to your player `position` or `velocity`.
 
@@ -86,7 +87,9 @@ Node: `NilDevMovement2D` (`addons/nildevgames_directional_movement_2d/movement_2
 
 - Exports:
 	- `input_mode` (enum `NilDevInputMode.Mode`) — `AUTO` by default.
-	- `speed` — float, default ~200.0 — movement speed multiplier.
+	- `speed_mode` (enum `NilDevSpeedMode.Mode`) — `UNIFORM` by default.
+	- `speed` — float, default ~200.0 — movement speed multiplier used in `UNIFORM` mode.
+	- `cardinal_speed_right`, `cardinal_speed_left`, `cardinal_speed_up`, `cardinal_speed_down` — floats used in `CARDINAL` mode.
 	- Mouse/Touch tuning: `*_deadzone`, `*_max_radius`, `*_stop_drag_if_input_stopped`, `*_motion_timeout` (grouped per input type).
 - Methods:
 	- `get_input_vector() -> Vector2` — current input direction vector (normalized where appropriate).
@@ -109,9 +112,22 @@ When `input_mode` is `AUTO`, the addon prioritizes input sources in this order: 
 
 ## Tuning
 
+- `speed_mode`: `UNIFORM` uses one shared speed, `CARDINAL` applies separate speeds for left/right/up/down.
 - `deadzone`: prevents tiny accidental drags from producing movement.
 - `max_radius`: controls drag magnitude after which input clamps to max strength.
 - `motion_timeout`: if enabled, pauses drag input after a period of no motion.
+
+If you want different speeds per direction, switch the movement node to `CARDINAL` mode:
+
+```gdscript
+mover.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+mover.cardinal_speed_right = 240.0
+mover.cardinal_speed_left = 180.0
+mover.cardinal_speed_up = 140.0
+mover.cardinal_speed_down = 220.0
+```
+
+In `CARDINAL` mode the input sources stay the same; only movement scaling changes. Diagonals are weighted per axis, so keyboard, mouse, and touch still share the same input pipeline.
 
 Start with default values and tweak to suit your gameplay feel.
 
@@ -119,6 +135,7 @@ Start with default values and tweak to suit your gameplay feel.
 
 Canonical test-based examples live under `tests/unit/` and show how to simulate drag and keyboard input. See:
 - [tests/unit/test_movement_2d.gd](tests/unit/test_movement_2d.gd)
+- [tests/unit/test_speed_mode.gd](tests/unit/test_speed_mode.gd)
 - [tests/unit/test_touch_input_2d.gd](tests/unit/test_touch_input_2d.gd)
 
 A runnable repository example lives under `examples/`:

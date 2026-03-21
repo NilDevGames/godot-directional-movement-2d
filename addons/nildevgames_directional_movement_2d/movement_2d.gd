@@ -3,6 +3,7 @@
 extends Node
 class_name NilDevMovement2D
 
+const DEFAULT_SPEED := 200.0
 const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2d/internals/keyboard_actions_2d.gd")
 
 # exported configurations --------------------------------------------------
@@ -18,13 +19,66 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
         if Engine.is_editor_hint():
             update_configuration_warnings()
 
-@export var speed := 200.0:
+@export var speed_mode := NilDevSpeedMode.Mode.UNIFORM:
+    get:
+        return _speed_mode
+    set(value):
+        if _speed_mode == value:
+            return
+        _speed_mode = value
+        if _speed_mode == NilDevSpeedMode.Mode.CARDINAL:
+            _seed_cardinal_speeds_from_speed()
+        notify_property_list_changed()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var speed := DEFAULT_SPEED:
     get:
         return _speed
     set(value):
         if _speed == value:
             return
         _speed = value
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var cardinal_speed_right := DEFAULT_SPEED:
+    get:
+        return _cardinal_speed_right
+    set(value):
+        if _cardinal_speed_right == value:
+            return
+        _cardinal_speed_right = value
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var cardinal_speed_left := DEFAULT_SPEED:
+    get:
+        return _cardinal_speed_left
+    set(value):
+        if _cardinal_speed_left == value:
+            return
+        _cardinal_speed_left = value
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var cardinal_speed_up := DEFAULT_SPEED:
+    get:
+        return _cardinal_speed_up
+    set(value):
+        if _cardinal_speed_up == value:
+            return
+        _cardinal_speed_up = value
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var cardinal_speed_down := DEFAULT_SPEED:
+    get:
+        return _cardinal_speed_down
+    set(value):
+        if _cardinal_speed_down == value:
+            return
+        _cardinal_speed_down = value
         if Engine.is_editor_hint():
             update_configuration_warnings()
 
@@ -174,7 +228,13 @@ var _mouse_node: NilDevMouseInput2D
 var _touch_node: NilDevTouchInput2D
 
 var _input_mode := NilDevInputMode.Mode.AUTO
-var _speed := 200.0
+var _speed_mode := NilDevSpeedMode.Mode.UNIFORM
+var _speed := DEFAULT_SPEED
+var _cardinal_speed_right := DEFAULT_SPEED
+var _cardinal_speed_left := DEFAULT_SPEED
+var _cardinal_speed_up := DEFAULT_SPEED
+var _cardinal_speed_down := DEFAULT_SPEED
+var _cardinal_speeds_seeded := false
 
 var _mouse_deadzone := 10.0
 var _mouse_max_radius := 100.0
@@ -303,10 +363,43 @@ func get_input_vector() -> Vector2:
     return Vector2.ZERO
 
 func calculate_movement(delta: float) -> Vector2:
-    _velocity = get_input_vector()
-    if _velocity != Vector2.ZERO:
-        _velocity *= speed
+    _velocity = _calculate_velocity(get_input_vector())
     return _velocity * delta
+
+func _calculate_velocity(input_vector: Vector2) -> Vector2:
+    if input_vector == Vector2.ZERO:
+        return Vector2.ZERO
+    if speed_mode == NilDevSpeedMode.Mode.CARDINAL:
+        return _calculate_cardinal_velocity(input_vector)
+    return input_vector * speed
+
+func _calculate_cardinal_velocity(input_vector: Vector2) -> Vector2:
+    var horizontal_velocity := 0.0
+    if input_vector.x > 0.0:
+        horizontal_velocity = input_vector.x * cardinal_speed_right
+    elif input_vector.x < 0.0:
+        horizontal_velocity = input_vector.x * cardinal_speed_left
+
+    var vertical_velocity := 0.0
+    if input_vector.y > 0.0:
+        vertical_velocity = input_vector.y * cardinal_speed_down
+    elif input_vector.y < 0.0:
+        vertical_velocity = input_vector.y * cardinal_speed_up
+
+    return Vector2(horizontal_velocity, vertical_velocity)
+
+func _seed_cardinal_speeds_from_speed() -> void:
+    if _cardinal_speeds_seeded:
+        return
+    if is_equal_approx(_cardinal_speed_right, DEFAULT_SPEED):
+        _cardinal_speed_right = _speed
+    if is_equal_approx(_cardinal_speed_left, DEFAULT_SPEED):
+        _cardinal_speed_left = _speed
+    if is_equal_approx(_cardinal_speed_up, DEFAULT_SPEED):
+        _cardinal_speed_up = _speed
+    if is_equal_approx(_cardinal_speed_down, DEFAULT_SPEED):
+        _cardinal_speed_down = _speed
+    _cardinal_speeds_seeded = true
 
 var velocity: Vector2:
     get:
@@ -339,6 +432,15 @@ var moving_down: bool:
 
 # ---------------------------------------------------------------------------
 func _validate_property(property: Dictionary) -> void:
+    if property.name == "speed":
+        if speed_mode == NilDevSpeedMode.Mode.CARDINAL:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+        return
+    elif property.name.begins_with("cardinal_speed_"):
+        if speed_mode == NilDevSpeedMode.Mode.UNIFORM:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+        return
+
     var mode := input_mode
     if property.name.begins_with("keyboard_"):
         if mode == NilDevInputMode.Mode.MOUSE or mode == NilDevInputMode.Mode.TOUCH:
@@ -361,8 +463,17 @@ func _validate_property(property: Dictionary) -> void:
 func _get_configuration_warnings() -> PackedStringArray:
     var w := PackedStringArray()
 
-    if speed <= 0:
+    if speed_mode == NilDevSpeedMode.Mode.UNIFORM and speed <= 0:
         w.append("Speed must be greater than zero.")
+    elif speed_mode == NilDevSpeedMode.Mode.CARDINAL:
+        if cardinal_speed_right <= 0:
+            w.append("Cardinal right speed must be greater than zero.")
+        if cardinal_speed_left <= 0:
+            w.append("Cardinal left speed must be greater than zero.")
+        if cardinal_speed_up <= 0:
+            w.append("Cardinal up speed must be greater than zero.")
+        if cardinal_speed_down <= 0:
+            w.append("Cardinal down speed must be greater than zero.")
 
     if (input_mode == NilDevInputMode.Mode.KEYBOARD or input_mode == NilDevInputMode.Mode.AUTO) and KeyboardActions.uses_custom_actions(_get_keyboard_actions()):
         w.append("Custom keyboard action names are created at runtime only. Add them to Project Settings -> Input Map if you want them persisted.")

@@ -91,8 +91,17 @@ func _make_screen_drag(pos: Vector2) -> InputEventScreenDrag:
 func test_default_input_mode_is_auto():
 	assert_eq(_node.input_mode, NilDevInputMode.Mode.AUTO, "Default input mode should be AUTO")
 
+func test_default_speed_mode_is_uniform():
+	assert_eq(_node.speed_mode, NilDevSpeedMode.Mode.UNIFORM, "Default speed mode should be UNIFORM")
+
 func test_default_speed():
 	assert_eq(_node.speed, 200.0, "Default speed should be 200.0")
+
+func test_default_cardinal_speeds_match_default_speed():
+	assert_eq(_node.cardinal_speed_right, 200.0)
+	assert_eq(_node.cardinal_speed_left, 200.0)
+	assert_eq(_node.cardinal_speed_up, 200.0)
+	assert_eq(_node.cardinal_speed_down, 200.0)
 
 func test_default_velocity_is_zero():
 	assert_eq(_node.velocity, Vector2.ZERO, "Default velocity should be ZERO")
@@ -380,6 +389,76 @@ func test_calculate_movement_diagonal():
 	assert_almost_eq(_node.velocity, expected_velocity, Vector2(0.1, 0.1))
 	assert_almost_eq(result, expected_velocity * delta, Vector2(0.1, 0.1))
 
+func test_calculate_movement_cardinal_right_speed():
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node.cardinal_speed_right = 320.0
+	Input.action_press(ACTION_RIGHT)
+	var result = _node.calculate_movement(0.5)
+	assert_almost_eq(_node.velocity, Vector2(320.0, 0.0), Vector2(0.001, 0.001))
+	assert_almost_eq(result, Vector2(160.0, 0.0), Vector2(0.001, 0.001))
+
+func test_calculate_movement_cardinal_left_speed():
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node.cardinal_speed_left = 180.0
+	Input.action_press(ACTION_LEFT)
+	_node.calculate_movement(1.0)
+	assert_almost_eq(_node.velocity, Vector2(-180.0, 0.0), Vector2(0.001, 0.001))
+
+func test_calculate_movement_cardinal_up_speed():
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node.cardinal_speed_up = 90.0
+	Input.action_press(ACTION_UP)
+	_node.calculate_movement(1.0)
+	assert_almost_eq(_node.velocity, Vector2(0.0, -90.0), Vector2(0.001, 0.001))
+
+func test_calculate_movement_cardinal_down_speed():
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node.cardinal_speed_down = 240.0
+	Input.action_press(ACTION_DOWN)
+	_node.calculate_movement(1.0)
+	assert_almost_eq(_node.velocity, Vector2(0.0, 240.0), Vector2(0.001, 0.001))
+
+func test_calculate_movement_cardinal_diagonal_uses_per_axis_speeds():
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node.cardinal_speed_right = 300.0
+	_node.cardinal_speed_down = 120.0
+	Input.action_press(ACTION_RIGHT)
+	Input.action_press(ACTION_DOWN)
+	var result = _node.calculate_movement(1.0)
+	var input_vec = Vector2(1, 1).normalized()
+	var expected_velocity = Vector2(input_vec.x * 300.0, input_vec.y * 120.0)
+	assert_almost_eq(_node.velocity, expected_velocity, Vector2(0.1, 0.1))
+	assert_almost_eq(result, expected_velocity, Vector2(0.1, 0.1))
+
+func test_calculate_movement_cardinal_mouse_drag_preserves_strength():
+	_node.input_mode = NilDevInputMode.Mode.MOUSE
+	await wait_physics_frames(2)
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node.cardinal_speed_right = 300.0
+	_node._mouse_node._start_drag(Vector2(100, 100))
+	_node._mouse_node._update_drag(Vector2(150, 100))
+	_node.calculate_movement(1.0)
+	assert_almost_eq(_node.velocity, Vector2(150.0, 0.0), Vector2(0.001, 0.001))
+
+func test_switching_to_cardinal_seeds_untouched_speeds_from_speed():
+	_node.speed = 350.0
+	_node.cardinal_speed_right = 275.0
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	assert_eq(_node.cardinal_speed_right, 275.0)
+	assert_eq(_node.cardinal_speed_left, 350.0)
+	assert_eq(_node.cardinal_speed_up, 350.0)
+	assert_eq(_node.cardinal_speed_down, 350.0)
+
+func test_cardinal_speeds_are_not_reseeded_after_first_switch():
+	_node.speed = 280.0
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node.cardinal_speed_right = 410.0
+	_node.speed_mode = NilDevSpeedMode.Mode.UNIFORM
+	_node.speed = 150.0
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	assert_eq(_node.cardinal_speed_right, 410.0)
+	assert_eq(_node.cardinal_speed_left, 280.0)
+
 func test_calculate_movement_updates_velocity_side_effect():
 	Input.action_press(ACTION_UP)
 	_node.calculate_movement(0.016)
@@ -512,6 +591,27 @@ func test_validate_property_auto_shows_keyboard():
 	assert_eq(prop.usage, PROPERTY_USAGE_DEFAULT,
 		"AUTO mode should keep keyboard_ properties visible")
 
+func test_validate_property_uniform_hides_cardinal_speeds():
+	_node._speed_mode = NilDevSpeedMode.Mode.UNIFORM
+	var prop = {"name": "cardinal_speed_right", "usage": PROPERTY_USAGE_DEFAULT}
+	_node._validate_property(prop)
+	assert_eq(prop.usage, PROPERTY_USAGE_NO_EDITOR,
+		"UNIFORM mode should hide cardinal_speed_ properties")
+
+func test_validate_property_cardinal_hides_speed():
+	_node._speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	var prop = {"name": "speed", "usage": PROPERTY_USAGE_DEFAULT}
+	_node._validate_property(prop)
+	assert_eq(prop.usage, PROPERTY_USAGE_NO_EDITOR,
+		"CARDINAL mode should hide speed")
+
+func test_validate_property_cardinal_shows_cardinal_speeds():
+	_node._speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	var prop = {"name": "cardinal_speed_down", "usage": PROPERTY_USAGE_DEFAULT}
+	_node._validate_property(prop)
+	assert_eq(prop.usage, PROPERTY_USAGE_DEFAULT,
+		"CARDINAL mode should show cardinal_speed_ properties")
+
 func test_validate_property_keyboard_hides_touch():
 	_node._input_mode = NilDevInputMode.Mode.KEYBOARD
 	var prop = {"name": "touch_deadzone", "usage": PROPERTY_USAGE_DEFAULT}
@@ -586,6 +686,39 @@ func test_warning_speed_negative():
 	_node._speed = -10.0
 	var w = _node._get_configuration_warnings()
 	assert_has(w, "Speed must be greater than zero.")
+
+func test_cardinal_mode_does_not_warn_for_hidden_uniform_speed():
+	_node._speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node._speed = 0.0
+	_node._cardinal_speed_right = 100.0
+	_node._cardinal_speed_left = 100.0
+	_node._cardinal_speed_up = 100.0
+	_node._cardinal_speed_down = 100.0
+	var w = _node._get_configuration_warnings()
+	assert_does_not_have(w, "Speed must be greater than zero.")
+
+func test_cardinal_mode_warns_for_invalid_cardinal_speeds():
+	_node._speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node._cardinal_speed_right = 0.0
+	_node._cardinal_speed_left = -10.0
+	_node._cardinal_speed_up = 0.0
+	_node._cardinal_speed_down = -5.0
+	var w = _node._get_configuration_warnings()
+	assert_has(w, "Cardinal right speed must be greater than zero.")
+	assert_has(w, "Cardinal left speed must be greater than zero.")
+	assert_has(w, "Cardinal up speed must be greater than zero.")
+	assert_has(w, "Cardinal down speed must be greater than zero.")
+
+func test_cardinal_mode_has_no_speed_warnings_when_all_cardinal_speeds_are_valid():
+	_node._speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node._cardinal_speed_right = 150.0
+	_node._cardinal_speed_left = 150.0
+	_node._cardinal_speed_up = 150.0
+	_node._cardinal_speed_down = 150.0
+	_node._input_mode = NilDevInputMode.Mode.KEYBOARD
+	var w = _node._get_configuration_warnings()
+	assert_does_not_have(w, "Speed must be greater than zero.")
+	assert_eq(w.size(), 0, "Valid CARDINAL configuration should not warn")
 
 func test_no_speed_warning_when_positive():
 	_node._speed = 100.0
@@ -678,6 +811,16 @@ func test_speed_setter_noop_on_same_value():
 	var original = _node._speed
 	_node.speed = original
 	assert_eq(_node._speed, original)
+
+func test_speed_mode_setter_noop_on_same_value():
+	var original = _node._speed_mode
+	_node.speed_mode = original
+	assert_eq(_node._speed_mode, original)
+
+func test_cardinal_speed_setter_noop_on_same_value():
+	var original = _node._cardinal_speed_right
+	_node.cardinal_speed_right = original
+	assert_eq(_node._cardinal_speed_right, original)
 
 func test_mouse_deadzone_setter_noop_on_same_value():
 	var original = _node._mouse_deadzone
