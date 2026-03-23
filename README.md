@@ -90,8 +90,8 @@ Node: `NilDevMovement2D` (`addons/nildevgames_directional_movement_2d/movement_2
 	- `input_mode` (enum `NilDevInputMode.Mode`) — `AUTO` by default.
 	- `auto_enable_keyboard`, `auto_enable_mouse`, `auto_enable_touch` — choose which methods participate when `input_mode` is `AUTO`.
 	- `speed_mode` (enum `NilDevSpeedMode.Mode`) — `UNIFORM` by default.
-	- `speed` — float, default ~200.0 — movement speed multiplier used in `UNIFORM` mode.
-	- `cardinal_speed_right`, `cardinal_speed_left`, `cardinal_speed_up`, `cardinal_speed_down` — floats used in `CARDINAL` mode.
+	- `speed` — float, default ~200.0 — movement speed multiplier used in `UNIFORM` mode. Assigning it while `speed_mode` is `CARDINAL` triggers `push_error()` and leaves the old value unchanged.
+	- `cardinal_speed_right`, `cardinal_speed_left`, `cardinal_speed_up`, `cardinal_speed_down` — floats used in `CARDINAL` mode. Assigning any of them while `speed_mode` is `UNIFORM` triggers `push_error()` and leaves the old value unchanged.
 	- Mouse/Touch tuning: `*_deadzone`, `*_max_radius`, `*_stop_drag_if_input_stopped`, `*_motion_timeout` (grouped per input type).
 - Methods:
 	- `get_input_vector() -> Vector2` — current input direction vector (normalized where appropriate).
@@ -129,6 +129,8 @@ You can still force a single mode by setting `input_mode` to `KEYBOARD`, `MOUSE`
 - `deadzone`: prevents tiny accidental drags from producing movement.
 - `max_radius`: controls drag magnitude after which input clamps to max strength.
 - `motion_timeout`: if enabled, pauses drag input after a period of no motion.
+
+Use the speed property that matches the active mode. The node now guards mismatched assignments at runtime: `speed` is only valid in `UNIFORM`, and `cardinal_speed_*` values are only valid in `CARDINAL`.
 
 If you want different speeds per direction, switch the movement node to `CARDINAL` mode:
 
@@ -178,6 +180,7 @@ The `examples/` folder is kept in the repository for source checkouts and exclud
 - If you override keyboard action names, the addon will create them at runtime when missing. Add them manually to Project Settings -> Input Map if you want them persisted in the editor.
 - If using `AUTO` mode and input seems ignored, confirm touch/mouse events aren’t being captured by UI elements first.
 - The input nodes are auto-created on `_ready()` by `NilDevMovement2D`. Avoid switching `input_mode` every frame.
+- If you configure speeds from code, set `speed_mode` first. Assigning `speed` in `CARDINAL` mode or `cardinal_speed_*` in `UNIFORM` mode now emits `push_error()` and preserves the previous value.
 
 ## Development
 

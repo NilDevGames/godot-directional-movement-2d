@@ -486,8 +486,10 @@ func test_calculate_movement_cardinal_mouse_drag_preserves_strength():
 	assert_almost_eq(_node.velocity, Vector2(150.0, 0.0), Vector2(0.001, 0.001))
 
 func test_switching_to_cardinal_seeds_untouched_speeds_from_speed():
-	_node.speed = 350.0
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
 	_node.cardinal_speed_right = 275.0
+	_node.speed_mode = NilDevSpeedMode.Mode.UNIFORM
+	_node.speed = 350.0
 	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
 	assert_eq(_node.cardinal_speed_right, 275.0)
 	assert_eq(_node.cardinal_speed_left, 350.0)
@@ -503,6 +505,37 @@ func test_cardinal_speeds_are_not_reseeded_after_first_switch():
 	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
 	assert_eq(_node.cardinal_speed_right, 410.0)
 	assert_eq(_node.cardinal_speed_left, 280.0)
+
+func test_setting_speed_in_cardinal_mode_pushes_error_and_keeps_value():
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	var original_speed := _node.speed
+	_node.speed = 350.0
+	assert_push_error("Cannot set 'speed' while speed_mode is CARDINAL.")
+	assert_eq(_node.speed, original_speed)
+
+func test_setting_cardinal_speed_right_in_uniform_mode_pushes_error_and_keeps_value():
+	var original_speed := _node.cardinal_speed_right
+	_node.cardinal_speed_right = 350.0
+	assert_push_error("Cannot set 'cardinal_speed_right' while speed_mode is UNIFORM.")
+	assert_eq(_node.cardinal_speed_right, original_speed)
+
+func test_setting_cardinal_speed_left_in_uniform_mode_pushes_error_and_keeps_value():
+	var original_speed := _node.cardinal_speed_left
+	_node.cardinal_speed_left = 350.0
+	assert_push_error("Cannot set 'cardinal_speed_left' while speed_mode is UNIFORM.")
+	assert_eq(_node.cardinal_speed_left, original_speed)
+
+func test_setting_cardinal_speed_up_in_uniform_mode_pushes_error_and_keeps_value():
+	var original_speed := _node.cardinal_speed_up
+	_node.cardinal_speed_up = 350.0
+	assert_push_error("Cannot set 'cardinal_speed_up' while speed_mode is UNIFORM.")
+	assert_eq(_node.cardinal_speed_up, original_speed)
+
+func test_setting_cardinal_speed_down_in_uniform_mode_pushes_error_and_keeps_value():
+	var original_speed := _node.cardinal_speed_down
+	_node.cardinal_speed_down = 350.0
+	assert_push_error("Cannot set 'cardinal_speed_down' while speed_mode is UNIFORM.")
+	assert_eq(_node.cardinal_speed_down, original_speed)
 
 func test_calculate_movement_updates_velocity_side_effect():
 	Input.action_press(ACTION_UP)

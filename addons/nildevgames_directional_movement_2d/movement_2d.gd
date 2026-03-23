@@ -76,6 +76,8 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
     set(value):
         if _speed == value:
             return
+        if not _can_set_uniform_speed():
+            return
         _speed = value
         if Engine.is_editor_hint():
             update_configuration_warnings()
@@ -85,6 +87,8 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
         return _cardinal_speed_right
     set(value):
         if _cardinal_speed_right == value:
+            return
+        if not _can_set_cardinal_speed("cardinal_speed_right"):
             return
         _cardinal_speed_right = value
         if Engine.is_editor_hint():
@@ -96,6 +100,8 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
     set(value):
         if _cardinal_speed_left == value:
             return
+        if not _can_set_cardinal_speed("cardinal_speed_left"):
+            return
         _cardinal_speed_left = value
         if Engine.is_editor_hint():
             update_configuration_warnings()
@@ -106,6 +112,8 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
     set(value):
         if _cardinal_speed_up == value:
             return
+        if not _can_set_cardinal_speed("cardinal_speed_up"):
+            return
         _cardinal_speed_up = value
         if Engine.is_editor_hint():
             update_configuration_warnings()
@@ -115,6 +123,8 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
         return _cardinal_speed_down
     set(value):
         if _cardinal_speed_down == value:
+            return
+        if not _can_set_cardinal_speed("cardinal_speed_down"):
             return
         _cardinal_speed_down = value
         if Engine.is_editor_hint():
@@ -355,6 +365,18 @@ func _enabled_auto_input_count() -> int:
     if auto_enable_touch:
         enabled_count += 1
     return enabled_count
+
+func _can_set_uniform_speed() -> bool:
+    if speed_mode == NilDevSpeedMode.Mode.UNIFORM:
+        return true
+    push_error("Cannot set 'speed' while speed_mode is CARDINAL. Use cardinal_speed_right, cardinal_speed_left, cardinal_speed_up, and cardinal_speed_down instead.")
+    return false
+
+func _can_set_cardinal_speed(property_name: String) -> bool:
+    if speed_mode == NilDevSpeedMode.Mode.CARDINAL:
+        return true
+    push_error("Cannot set '%s' while speed_mode is UNIFORM. Use speed instead." % property_name)
+    return false
 
 # ---------------------------------------------------------------------------
 func _ensure_keyboard_node() -> void:
