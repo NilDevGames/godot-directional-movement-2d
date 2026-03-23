@@ -394,6 +394,36 @@ func test_auto_falls_to_keyboard_when_no_drag():
 	assert_almost_eq(v, Vector2(0, 1), Vector2(0.001, 0.001),
 		"AUTO: keyboard used when no touch/mouse active")
 
+func test_auto_zero_drag_blocks_keyboard_by_default():
+	Input.action_press(ACTION_RIGHT)
+	_node._mouse_node._start_drag(Vector2(100, 100))
+	var v = _node.get_input_vector()
+	assert_eq(v, Vector2.ZERO, "AUTO: pressed mouse drag at origin should still block keyboard by default")
+
+func test_auto_zero_drag_falls_through_to_keyboard_when_enabled():
+	_node.auto_ignore_zero_drag = true
+	Input.action_press(ACTION_RIGHT)
+	_node._mouse_node._start_drag(Vector2(100, 100))
+	var v = _node.get_input_vector()
+	assert_almost_eq(v, Vector2(1, 0), Vector2(0.001, 0.001),
+		"AUTO: zero-vector mouse drag should fall through to keyboard when enabled")
+
+func test_auto_zero_touch_falls_through_to_mouse_when_enabled():
+	_node.auto_ignore_zero_drag = true
+	_node._touch_node._start_drag(Vector2(100, 100))
+	_node._mouse_node._start_drag(Vector2(100, 100))
+	_node._mouse_node._update_drag(Vector2(200, 100))
+	var v = _node.get_input_vector()
+	assert_gt(v.x, 0.0, "AUTO: zero-vector touch should fall through to active mouse drag when enabled")
+
+func test_auto_non_zero_drag_still_overrides_keyboard_when_fallthrough_enabled():
+	_node.auto_ignore_zero_drag = true
+	Input.action_press(ACTION_LEFT)
+	_node._mouse_node._start_drag(Vector2(100, 100))
+	_node._mouse_node._update_drag(Vector2(200, 100))
+	var v = _node.get_input_vector()
+	assert_gt(v.x, 0.0, "AUTO: non-zero mouse drag should still override keyboard when fallthrough is enabled")
+
 func test_auto_returns_zero_when_no_input():
 	var v = _node.get_input_vector()
 	assert_eq(v, Vector2.ZERO, "AUTO: ZERO when nothing pressed")
@@ -682,6 +712,13 @@ func test_validate_property_keyboard_hides_auto_enable_flags():
 	_node._validate_property(prop)
 	assert_eq(prop.usage, PROPERTY_USAGE_NO_EDITOR,
 		"Dedicated modes should hide auto_enable_ properties")
+
+func test_validate_property_keyboard_hides_auto_ignore_zero_drag():
+	_node._input_mode = NilDevInputMode.Mode.KEYBOARD
+	var prop = {"name": "auto_ignore_zero_drag", "usage": PROPERTY_USAGE_DEFAULT}
+	_node._validate_property(prop)
+	assert_eq(prop.usage, PROPERTY_USAGE_NO_EDITOR,
+		"Dedicated modes should hide auto_ignore_zero_drag")
 
 func test_validate_property_uniform_hides_cardinal_speeds():
 	_node._speed_mode = NilDevSpeedMode.Mode.UNIFORM

@@ -116,8 +116,11 @@ You can choose which methods participate in `AUTO` with:
 - `auto_enable_keyboard`
 - `auto_enable_mouse`
 - `auto_enable_touch`
+- `auto_ignore_zero_drag`
 
 The priority order does not change. Disabled methods are simply skipped, so if you enable only mouse and keyboard, `AUTO` still resolves input as mouse > keyboard.
+
+If `auto_ignore_zero_drag` is enabled, a pressed mouse or touch drag that currently resolves to `Vector2.ZERO` will defer to the next AUTO input source instead of blocking it. This only affects zero-vector drag states, such as an untouched drag origin or a paused drag, and does not change normal non-zero priority.
 
 `AUTO` is intended for mixed-input setups. If fewer than two methods are enabled, the node shows a configuration warning recommending a dedicated mode instead. A single enabled method still works, but using `KEYBOARD`, `MOUSE`, or `TOUCH` directly is clearer in that case.
 
@@ -129,6 +132,7 @@ You can still force a single mode by setting `input_mode` to `KEYBOARD`, `MOUSE`
 - `deadzone`: prevents tiny accidental drags from producing movement.
 - `max_radius`: controls drag magnitude after which input clamps to max strength.
 - `motion_timeout`: if enabled, pauses drag input after a period of no motion.
+- `auto_ignore_zero_drag`: in `AUTO`, lets pressed touch or mouse input fall through to the next source when the drag currently resolves to zero.
 
 Use the speed property that matches the active mode. The node now guards mismatched assignments at runtime: `speed` is only valid in `UNIFORM`, and `cardinal_speed_*` values are only valid in `CARDINAL`.
 
@@ -156,6 +160,13 @@ mover.auto_enable_touch = false
 ```
 
 That keeps AUTO priority intact for the enabled methods, so mouse still overrides keyboard while touch is excluded entirely.
+
+If you want keyboard input to keep working while a touch or mouse drag is pressed but still at its origin, enable auto_ignore_zero_drag:
+
+```gdscript
+mover.input_mode = NilDevInputMode.Mode.AUTO
+mover.auto_ignore_zero_drag = true
+```
 
 ## Examples & Tests
 

@@ -55,6 +55,16 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
         if Engine.is_editor_hint():
             update_configuration_warnings()
 
+@export var auto_ignore_zero_drag := true:
+    get:
+        return _auto_ignore_zero_drag
+    set(value):
+        if _auto_ignore_zero_drag == value:
+            return
+        _auto_ignore_zero_drag = value
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
 @export var speed_mode := NilDevSpeedMode.Mode.UNIFORM:
     get:
         return _speed_mode
@@ -279,6 +289,7 @@ var _input_mode := NilDevInputMode.Mode.AUTO
 var _auto_enable_keyboard := true
 var _auto_enable_mouse := true
 var _auto_enable_touch := true
+var _auto_ignore_zero_drag := false
 var _speed_mode := NilDevSpeedMode.Mode.UNIFORM
 var _speed := DEFAULT_SPEED
 var _cardinal_speed_right := DEFAULT_SPEED
@@ -369,12 +380,16 @@ func _enabled_auto_input_count() -> int:
 func _can_set_uniform_speed() -> bool:
     if speed_mode == NilDevSpeedMode.Mode.UNIFORM:
         return true
+    # Assert is used here instead of push_error + return false because setting speed is more likely to be done programmatically, and this way it will be more obvious to developers that they are doing something wrong. Editor warnings are more for designers who may not see assertion errors in the console.
+    assert(speed_mode == NilDevSpeedMode.Mode.CARDINAL, "Invalid speed mode")
     push_error("Cannot set 'speed' while speed_mode is CARDINAL. Use cardinal_speed_right, cardinal_speed_left, cardinal_speed_up, and cardinal_speed_down instead.")
     return false
 
 func _can_set_cardinal_speed(property_name: String) -> bool:
     if speed_mode == NilDevSpeedMode.Mode.CARDINAL:
         return true
+    # Assert is used here instead of push_error + return false because setting cardinal speeds is more likely to be done programmatically, and this way it will be more obvious to developers that they are doing something wrong. Editor warnings are more for designers who may not see assertion errors in the console.
+    assert(speed_mode == NilDevSpeedMode.Mode.UNIFORM, "Invalid speed mode")
     push_error("Cannot set '%s' while speed_mode is UNIFORM. Use speed instead." % property_name)
     return false
 
@@ -400,7 +415,20 @@ func _ensure_touch_node() -> void:
         _apply_touch_settings()
         add_child(_touch_node)
 
+func _get_auto_drag_input_vector(node: NilDevDragBasedInput2D) -> Vector2:
+    if not node or not is_instance_valid(node) or not node.is_pressed:
+        return Vector2.ZERO
+
+    var input_vector := node.get_input_vector()
+    if auto_ignore_zero_drag and input_vector == Vector2.ZERO:
+        return Vector2.ZERO
+
+    return input_vector
+
 func _update_input_nodes() -> void:
+    if Engine.is_editor_hint():
+        return
+
     match input_mode:
         NilDevInputMode.Mode.KEYBOARD:
             _ensure_keyboard_node()
@@ -446,10 +474,14 @@ func get_input_vector() -> Vector2:
             return Vector2.ZERO
         NilDevInputMode.Mode.AUTO:
             # priority: touch > mouse > keyboard; first non-zero wins
-            if auto_enable_touch and _touch_node and is_instance_valid(_touch_node) and _touch_node.is_pressed:
-                return _touch_node.get_input_vector()
-            if auto_enable_mouse and _mouse_node and is_instance_valid(_mouse_node) and _mouse_node.is_pressed:
-                return _mouse_node.get_input_vector()
+            if auto_enable_touch:
+                var touch_vector := _get_auto_drag_input_vector(_touch_node)
+                if touch_vector != Vector2.ZERO or (_touch_node and is_instance_valid(_touch_node) and _touch_node.is_pressed and not auto_ignore_zero_drag):
+                    return touch_vector
+            if auto_enable_mouse:
+                var mouse_vector := _get_auto_drag_input_vector(_mouse_node)
+                if mouse_vector != Vector2.ZERO or (_mouse_node and is_instance_valid(_mouse_node) and _mouse_node.is_pressed and not auto_ignore_zero_drag):
+                    return mouse_vector
             if auto_enable_keyboard and _keyboard_node and is_instance_valid(_keyboard_node) and _keyboard_node.is_pressed:
                 return _keyboard_node.get_input_vector()
     return Vector2.ZERO
@@ -535,6 +567,10 @@ func _validate_property(property: Dictionary) -> void:
 
     var mode := input_mode
     if property.name.begins_with("auto_enable_"):
+        if mode != NilDevInputMode.Mode.AUTO:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+        return
+    if property.name == "auto_ignore_zero_drag":
         if mode != NilDevInputMode.Mode.AUTO:
             property.usage = PROPERTY_USAGE_NO_EDITOR
         return
