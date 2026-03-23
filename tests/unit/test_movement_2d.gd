@@ -91,6 +91,11 @@ func _make_screen_drag(pos: Vector2) -> InputEventScreenDrag:
 func test_default_input_mode_is_auto():
 	assert_eq(_node.input_mode, NilDevInputMode.Mode.AUTO, "Default input mode should be AUTO")
 
+func test_auto_mode_enables_all_input_methods_by_default():
+	assert_true(_node.auto_enable_keyboard, "AUTO should enable keyboard by default")
+	assert_true(_node.auto_enable_mouse, "AUTO should enable mouse by default")
+	assert_true(_node.auto_enable_touch, "AUTO should enable touch by default")
+
 func test_default_speed_mode_is_uniform():
 	assert_eq(_node.speed_mode, NilDevSpeedMode.Mode.UNIFORM, "Default speed mode should be UNIFORM")
 
@@ -135,6 +140,22 @@ func test_auto_mode_creates_all_three_nodes():
 	assert_true(is_instance_valid(_node._keyboard_node), "Keyboard node should exist in AUTO")
 	assert_true(is_instance_valid(_node._mouse_node), "Mouse node should exist in AUTO")
 	assert_true(is_instance_valid(_node._touch_node), "Touch node should exist in AUTO")
+
+func test_auto_mode_only_creates_enabled_input_nodes():
+	_node.auto_enable_keyboard = false
+	_node.auto_enable_touch = false
+	await wait_physics_frames(2)
+	assert_false(is_instance_valid(_node._keyboard_node), "Keyboard node should be freed when disabled in AUTO")
+	assert_true(is_instance_valid(_node._mouse_node), "Mouse node should remain when enabled in AUTO")
+	assert_false(is_instance_valid(_node._touch_node), "Touch node should be freed when disabled in AUTO")
+
+func test_reenabling_auto_input_recreates_node():
+	_node.auto_enable_mouse = false
+	await wait_physics_frames(2)
+	assert_eq(_node._mouse_node, null, "Mouse node reference should be nulled when disabled in AUTO")
+	_node.auto_enable_mouse = true
+	await wait_physics_frames(2)
+	assert_true(is_instance_valid(_node._mouse_node), "Mouse node should be recreated when re-enabled in AUTO")
 
 func test_keyboard_mode_creates_only_keyboard():
 	_node.input_mode = NilDevInputMode.Mode.KEYBOARD
@@ -195,13 +216,10 @@ func test_dangling_reference_on_rapid_mode_switch():
 	# Wait for queue_free to process
 	await wait_physics_frames(2)
 
-	# BUG: these nodes were freed but _ensure_*() didn't re-create them
-	if not is_instance_valid(_node._mouse_node):
-		pending("BUG: _mouse_node is dangling after rapid AUTO→KEYBOARD→AUTO switch. " +
-			"References should be nulled before queue_free() in _update_input_nodes().")
-	if not is_instance_valid(_node._touch_node):
-		pending("BUG: _touch_node is dangling after rapid AUTO→KEYBOARD→AUTO switch. " +
-			"References should be nulled before queue_free() in _update_input_nodes().")
+	assert_true(is_instance_valid(_node._mouse_node),
+		"Mouse node should be recreated after rapid AUTO→KEYBOARD→AUTO switch")
+	assert_true(is_instance_valid(_node._touch_node),
+		"Touch node should be recreated after rapid AUTO→KEYBOARD→AUTO switch")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -341,6 +359,33 @@ func test_auto_priority_touch_over_keyboard_and_mouse():
 	_node._touch_node._update_drag(Vector2(100, 0))
 	var v = _node.get_input_vector()
 	assert_lt(v.y, 0.0, "AUTO: touch Y negative (upward) takes highest priority")
+
+func test_auto_priority_skips_disabled_touch_and_uses_mouse():
+	_node.auto_enable_touch = false
+	await wait_physics_frames(2)
+	Input.action_press(ACTION_LEFT)
+	_node._mouse_node._start_drag(Vector2(100, 100))
+	_node._mouse_node._update_drag(Vector2(200, 100))
+	var v = _node.get_input_vector()
+	assert_gt(v.x, 0.0, "AUTO: mouse should win when touch is disabled")
+
+func test_auto_priority_skips_disabled_mouse_and_uses_keyboard():
+	_node.auto_enable_mouse = false
+	_node.auto_enable_touch = false
+	await wait_physics_frames(2)
+	Input.action_press(ACTION_DOWN)
+	var v = _node.get_input_vector()
+	assert_almost_eq(v, Vector2(0, 1), Vector2(0.001, 0.001),
+		"AUTO: keyboard should be used when mouse and touch are disabled")
+
+func test_auto_returns_zero_when_all_inputs_disabled():
+	_node.auto_enable_keyboard = false
+	_node.auto_enable_mouse = false
+	_node.auto_enable_touch = false
+	await wait_physics_frames(2)
+	Input.action_press(ACTION_RIGHT)
+	var v = _node.get_input_vector()
+	assert_eq(v, Vector2.ZERO, "AUTO: ZERO when all AUTO inputs are disabled")
 
 func test_auto_falls_to_keyboard_when_no_drag():
 	# No mouse/touch drag active
@@ -591,6 +636,20 @@ func test_validate_property_auto_shows_keyboard():
 	assert_eq(prop.usage, PROPERTY_USAGE_DEFAULT,
 		"AUTO mode should keep keyboard_ properties visible")
 
+func test_validate_property_auto_shows_auto_enable_flags():
+	_node._input_mode = NilDevInputMode.Mode.AUTO
+	var prop = {"name": "auto_enable_keyboard", "usage": PROPERTY_USAGE_DEFAULT}
+	_node._validate_property(prop)
+	assert_eq(prop.usage, PROPERTY_USAGE_DEFAULT,
+		"AUTO mode should keep auto_enable_ properties visible")
+
+func test_validate_property_keyboard_hides_auto_enable_flags():
+	_node._input_mode = NilDevInputMode.Mode.KEYBOARD
+	var prop = {"name": "auto_enable_touch", "usage": PROPERTY_USAGE_DEFAULT}
+	_node._validate_property(prop)
+	assert_eq(prop.usage, PROPERTY_USAGE_NO_EDITOR,
+		"Dedicated modes should hide auto_enable_ properties")
+
 func test_validate_property_uniform_hides_cardinal_speeds():
 	_node._speed_mode = NilDevSpeedMode.Mode.UNIFORM
 	var prop = {"name": "cardinal_speed_right", "usage": PROPERTY_USAGE_DEFAULT}
@@ -790,9 +849,37 @@ func test_auto_mode_checks_both_mouse_and_touch():
 	assert_has(w, "Mouse deadzone cannot be negative.")
 	assert_has(w, "Touch deadzone cannot be negative.")
 
+func test_auto_mode_warns_when_only_one_input_is_enabled():
+	_node._input_mode = NilDevInputMode.Mode.AUTO
+	_node._auto_enable_keyboard = true
+	_node._auto_enable_mouse = false
+	_node._auto_enable_touch = false
+	var w = _node._get_configuration_warnings()
+	assert_has(w, "AUTO mode should have at least two enabled input methods. Select a dedicated input mode if you only need one method.")
+
+func test_auto_mode_warns_when_no_inputs_are_enabled():
+	_node._input_mode = NilDevInputMode.Mode.AUTO
+	_node._auto_enable_keyboard = false
+	_node._auto_enable_mouse = false
+	_node._auto_enable_touch = false
+	var w = _node._get_configuration_warnings()
+	assert_has(w, "AUTO mode should have at least two enabled input methods. Select a dedicated input mode if you only need one method.")
+
+func test_auto_mode_ignores_disabled_mouse_warnings():
+	_node._input_mode = NilDevInputMode.Mode.AUTO
+	_node._auto_enable_keyboard = true
+	_node._auto_enable_mouse = false
+	_node._auto_enable_touch = true
+	_node._mouse_deadzone = -1.0
+	var w = _node._get_configuration_warnings()
+	assert_does_not_have(w, "Mouse deadzone cannot be negative.")
+
 func test_no_warnings_with_valid_auto_config():
 	_node._input_mode = NilDevInputMode.Mode.AUTO
 	_node._speed = 200.0
+	_node._auto_enable_keyboard = true
+	_node._auto_enable_mouse = true
+	_node._auto_enable_touch = true
 	_node._mouse_deadzone = 10.0
 	_node._mouse_max_radius = 100.0
 	_node._mouse_motion_timeout = 0.1
@@ -831,6 +918,11 @@ func test_touch_deadzone_setter_noop_on_same_value():
 	var original = _node._touch_deadzone
 	_node.touch_deadzone = original
 	assert_eq(_node._touch_deadzone, original)
+
+func test_auto_enable_keyboard_setter_noop_on_same_value():
+	var original = _node._auto_enable_keyboard
+	_node.auto_enable_keyboard = original
+	assert_eq(_node._auto_enable_keyboard, original)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -19,6 +19,42 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
         if Engine.is_editor_hint():
             update_configuration_warnings()
 
+@export var auto_enable_touch := true:
+    get:
+        return _auto_enable_touch
+    set(value):
+        if _auto_enable_touch == value:
+            return
+        _auto_enable_touch = value
+        notify_property_list_changed()
+        _update_input_nodes()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var auto_enable_mouse := true:
+    get:
+        return _auto_enable_mouse
+    set(value):
+        if _auto_enable_mouse == value:
+            return
+        _auto_enable_mouse = value
+        notify_property_list_changed()
+        _update_input_nodes()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
+@export var auto_enable_keyboard := true:
+    get:
+        return _auto_enable_keyboard
+    set(value):
+        if _auto_enable_keyboard == value:
+            return
+        _auto_enable_keyboard = value
+        notify_property_list_changed()
+        _update_input_nodes()
+        if Engine.is_editor_hint():
+            update_configuration_warnings()
+
 @export var speed_mode := NilDevSpeedMode.Mode.UNIFORM:
     get:
         return _speed_mode
@@ -28,6 +64,8 @@ const KeyboardActions = preload("res://addons/nildevgames_directional_movement_2
         _speed_mode = value
         if _speed_mode == NilDevSpeedMode.Mode.CARDINAL:
             _seed_cardinal_speeds_from_speed()
+        else:
+            _cardinal_speeds_seeded = false
         notify_property_list_changed()
         if Engine.is_editor_hint():
             update_configuration_warnings()
@@ -228,6 +266,9 @@ var _mouse_node: NilDevMouseInput2D
 var _touch_node: NilDevTouchInput2D
 
 var _input_mode := NilDevInputMode.Mode.AUTO
+var _auto_enable_keyboard := true
+var _auto_enable_mouse := true
+var _auto_enable_touch := true
 var _speed_mode := NilDevSpeedMode.Mode.UNIFORM
 var _speed := DEFAULT_SPEED
 var _cardinal_speed_right := DEFAULT_SPEED
@@ -290,76 +331,105 @@ func _apply_touch_settings() -> void:
         _touch_node.stop_drag_if_input_stopped = touch_stop_drag_if_input_stopped
         _touch_node.motion_timeout = touch_motion_timeout
 
+func _free_keyboard_node() -> void:
+    if _keyboard_node and is_instance_valid(_keyboard_node):
+        _keyboard_node.queue_free()
+    _keyboard_node = null
+
+func _free_mouse_node() -> void:
+    if _mouse_node and is_instance_valid(_mouse_node):
+        _mouse_node.queue_free()
+    _mouse_node = null
+
+func _free_touch_node() -> void:
+    if _touch_node and is_instance_valid(_touch_node):
+        _touch_node.queue_free()
+    _touch_node = null
+
+func _enabled_auto_input_count() -> int:
+    var enabled_count := 0
+    if auto_enable_keyboard:
+        enabled_count += 1
+    if auto_enable_mouse:
+        enabled_count += 1
+    if auto_enable_touch:
+        enabled_count += 1
+    return enabled_count
+
 # ---------------------------------------------------------------------------
 func _ensure_keyboard_node() -> void:
-    if not _keyboard_node or not is_instance_valid(_keyboard_node):
+    if not _keyboard_node or not is_instance_valid(_keyboard_node) or _keyboard_node.is_queued_for_deletion():
         _keyboard_node = NilDevKeyboardInput2D.new()
         _keyboard_node.name = "KeyboardInput"
         _apply_keyboard_settings()
         add_child(_keyboard_node)
 
 func _ensure_mouse_node() -> void:
-    if not _mouse_node or not is_instance_valid(_mouse_node):
+    if not _mouse_node or not is_instance_valid(_mouse_node) or _mouse_node.is_queued_for_deletion():
         _mouse_node = NilDevMouseInput2D.new()
         _mouse_node.name = "MouseInput"
-        add_child(_mouse_node)
         _apply_mouse_settings()
+        add_child(_mouse_node)
 
 func _ensure_touch_node() -> void:
-    if not _touch_node or not is_instance_valid(_touch_node):
+    if not _touch_node or not is_instance_valid(_touch_node) or _touch_node.is_queued_for_deletion():
         _touch_node = NilDevTouchInput2D.new()
         _touch_node.name = "TouchInput"
-        add_child(_touch_node)
         _apply_touch_settings()
+        add_child(_touch_node)
 
 func _update_input_nodes() -> void:
     match input_mode:
         NilDevInputMode.Mode.KEYBOARD:
             _ensure_keyboard_node()
-            if _mouse_node and is_instance_valid(_mouse_node):
-                _mouse_node.queue_free()
-                _mouse_node = null
-            if _touch_node and is_instance_valid(_touch_node):
-                _touch_node.queue_free()
-                _touch_node = null
+            _free_mouse_node()
+            _free_touch_node()
         NilDevInputMode.Mode.MOUSE:
             _ensure_mouse_node()
-            if _keyboard_node and is_instance_valid(_keyboard_node):
-                _keyboard_node.queue_free()
-                _keyboard_node = null
-            if _touch_node and is_instance_valid(_touch_node):
-                _touch_node.queue_free()
-                _touch_node = null
+            _free_keyboard_node()
+            _free_touch_node()
         NilDevInputMode.Mode.TOUCH:
             _ensure_touch_node()
-            if _keyboard_node and is_instance_valid(_keyboard_node):
-                _keyboard_node.queue_free()
-                _keyboard_node = null
-            if _mouse_node and is_instance_valid(_mouse_node):
-                _mouse_node.queue_free()
-                _mouse_node = null
+            _free_keyboard_node()
+            _free_mouse_node()
         NilDevInputMode.Mode.AUTO:
-            _ensure_keyboard_node()
-            _ensure_mouse_node()
-            _ensure_touch_node()
+            if auto_enable_keyboard:
+                _ensure_keyboard_node()
+            else:
+                _free_keyboard_node()
+            if auto_enable_mouse:
+                _ensure_mouse_node()
+            else:
+                _free_mouse_node()
+            if auto_enable_touch:
+                _ensure_touch_node()
+            else:
+                _free_touch_node()
 
 # ---------------------------------------------------------------------------
 
 func get_input_vector() -> Vector2:
     match input_mode:
         NilDevInputMode.Mode.KEYBOARD:
-            return _keyboard_node.get_input_vector()
+            if _keyboard_node and is_instance_valid(_keyboard_node):
+                return _keyboard_node.get_input_vector()
+            return Vector2.ZERO
         NilDevInputMode.Mode.MOUSE:
-            return _mouse_node.get_input_vector()
+            if _mouse_node and is_instance_valid(_mouse_node):
+                return _mouse_node.get_input_vector()
+            return Vector2.ZERO
         NilDevInputMode.Mode.TOUCH:
-            return _touch_node.get_input_vector()
+            if _touch_node and is_instance_valid(_touch_node):
+                return _touch_node.get_input_vector()
+            return Vector2.ZERO
         NilDevInputMode.Mode.AUTO:
             # priority: touch > mouse > keyboard; first non-zero wins
-            if _touch_node.is_pressed:
+            if auto_enable_touch and _touch_node and is_instance_valid(_touch_node) and _touch_node.is_pressed:
                 return _touch_node.get_input_vector()
-            if _mouse_node.is_pressed:
+            if auto_enable_mouse and _mouse_node and is_instance_valid(_mouse_node) and _mouse_node.is_pressed:
                 return _mouse_node.get_input_vector()
-            return _keyboard_node.get_input_vector()
+            if auto_enable_keyboard and _keyboard_node and is_instance_valid(_keyboard_node) and _keyboard_node.is_pressed:
+                return _keyboard_node.get_input_vector()
     return Vector2.ZERO
 
 func calculate_movement(delta: float) -> Vector2:
@@ -442,6 +512,10 @@ func _validate_property(property: Dictionary) -> void:
         return
 
     var mode := input_mode
+    if property.name.begins_with("auto_enable_"):
+        if mode != NilDevInputMode.Mode.AUTO:
+            property.usage = PROPERTY_USAGE_NO_EDITOR
+        return
     if property.name.begins_with("keyboard_"):
         if mode == NilDevInputMode.Mode.MOUSE or mode == NilDevInputMode.Mode.TOUCH:
             property.usage = PROPERTY_USAGE_NO_EDITOR
@@ -475,13 +549,16 @@ func _get_configuration_warnings() -> PackedStringArray:
         if cardinal_speed_down <= 0:
             w.append("Cardinal down speed must be greater than zero.")
 
-    if (input_mode == NilDevInputMode.Mode.KEYBOARD or input_mode == NilDevInputMode.Mode.AUTO) and KeyboardActions.uses_custom_actions(_get_keyboard_actions()):
+    if input_mode == NilDevInputMode.Mode.AUTO and _enabled_auto_input_count() < 2:
+        w.append("AUTO mode should have at least two enabled input methods. Select a dedicated input mode if you only need one method.")
+
+    if (input_mode == NilDevInputMode.Mode.KEYBOARD or (input_mode == NilDevInputMode.Mode.AUTO and auto_enable_keyboard)) and KeyboardActions.uses_custom_actions(_get_keyboard_actions()):
         w.append("Custom keyboard action names are created at runtime only. Add them to Project Settings -> Input Map if you want them persisted.")
 
     if input_mode == NilDevInputMode.Mode.KEYBOARD:
         return w
 
-    if input_mode == NilDevInputMode.Mode.MOUSE or input_mode == NilDevInputMode.Mode.AUTO:
+    if input_mode == NilDevInputMode.Mode.MOUSE or (input_mode == NilDevInputMode.Mode.AUTO and auto_enable_mouse):
         if mouse_deadzone < 0.0:
             w.append("Mouse deadzone cannot be negative.")
         if mouse_max_radius < 10:
@@ -489,7 +566,7 @@ func _get_configuration_warnings() -> PackedStringArray:
         if mouse_motion_timeout < 0.1:
            w.append("Mouse motion timeout should be at least 0.1 seconds.")
 
-    if input_mode == NilDevInputMode.Mode.TOUCH or input_mode == NilDevInputMode.Mode.AUTO:
+    if input_mode == NilDevInputMode.Mode.TOUCH or (input_mode == NilDevInputMode.Mode.AUTO and auto_enable_touch):
         if touch_deadzone < 0.0:
             w.append("Touch deadzone cannot be negative.")
         if touch_max_radius < 10:

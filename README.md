@@ -7,6 +7,7 @@ Cross-platform 2D directional movement input for Godot (keyboard, mouse, touch)
 
 **Key features**
 - Automatic input mode selection (`AUTO`, `KEYBOARD`, `MOUSE`, `TOUCH`).
+- Choose which input methods participate in `AUTO` mode without changing AUTO priority.
 - Optional cardinal speed mode for asymmetric 4-direction movement tuning.
 - Drag-based mouse and touch input with deadzone / radius tuning.
 - Simple integration: call `calculate_movement(delta)` and apply to your player `position` or `velocity`.
@@ -87,6 +88,7 @@ Node: `NilDevMovement2D` (`addons/nildevgames_directional_movement_2d/movement_2
 
 - Exports:
 	- `input_mode` (enum `NilDevInputMode.Mode`) — `AUTO` by default.
+	- `auto_enable_keyboard`, `auto_enable_mouse`, `auto_enable_touch` — choose which methods participate when `input_mode` is `AUTO`.
 	- `speed_mode` (enum `NilDevSpeedMode.Mode`) — `UNIFORM` by default.
 	- `speed` — float, default ~200.0 — movement speed multiplier used in `UNIFORM` mode.
 	- `cardinal_speed_right`, `cardinal_speed_left`, `cardinal_speed_up`, `cardinal_speed_down` — floats used in `CARDINAL` mode.
@@ -108,7 +110,18 @@ Internals: `directional_input_2d.gd` and `drag_based_input_2d.gd` implement the 
 
 ## Input Mode Behavior
 
-When `input_mode` is `AUTO`, the addon prioritizes input sources in this order: touch > mouse > keyboard. You can force a single mode by setting `input_mode` to `KEYBOARD`, `MOUSE`, or `TOUCH`.
+When `input_mode` is `AUTO`, the addon prioritizes input sources in this order: touch > mouse > keyboard.
+
+You can choose which methods participate in `AUTO` with:
+- `auto_enable_keyboard`
+- `auto_enable_mouse`
+- `auto_enable_touch`
+
+The priority order does not change. Disabled methods are simply skipped, so if you enable only mouse and keyboard, `AUTO` still resolves input as mouse > keyboard.
+
+`AUTO` is intended for mixed-input setups. If fewer than two methods are enabled, the node shows a configuration warning recommending a dedicated mode instead. A single enabled method still works, but using `KEYBOARD`, `MOUSE`, or `TOUCH` directly is clearer in that case.
+
+You can still force a single mode by setting `input_mode` to `KEYBOARD`, `MOUSE`, or `TOUCH`.
 
 ## Tuning
 
@@ -130,6 +143,17 @@ mover.cardinal_speed_down = 220.0
 In `CARDINAL` mode the input sources stay the same; only movement scaling changes. Diagonals are weighted per axis, so keyboard, mouse, and touch still share the same input pipeline.
 
 Start with default values and tweak to suit your gameplay feel.
+
+Example: keep desktop-style `AUTO` behavior but ignore touch input:
+
+```gdscript
+mover.input_mode = NilDevInputMode.Mode.AUTO
+mover.auto_enable_keyboard = true
+mover.auto_enable_mouse = true
+mover.auto_enable_touch = false
+```
+
+That keeps AUTO priority intact for the enabled methods, so mouse still overrides keyboard while touch is excluded entirely.
 
 ## Examples & Tests
 
