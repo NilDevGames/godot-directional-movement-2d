@@ -487,8 +487,12 @@ func get_input_vector() -> Vector2:
     return Vector2.ZERO
 
 func calculate_movement(delta: float) -> Vector2:
-    _velocity = _calculate_velocity(get_input_vector())
+    _velocity = calculate_velocity()
     return _velocity * delta
+
+func calculate_velocity() -> Vector2:
+    _velocity = _calculate_velocity(get_input_vector())
+    return _velocity
 
 func _calculate_velocity(input_vector: Vector2) -> Vector2:
     if input_vector == Vector2.ZERO:

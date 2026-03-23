@@ -10,7 +10,7 @@ Cross-platform 2D directional movement input for Godot (keyboard, mouse, touch)
 - Choose which input methods participate in `AUTO` mode without changing AUTO priority.
 - Optional cardinal speed mode for asymmetric 4-direction movement tuning.
 - Drag-based mouse and touch input with deadzone / radius tuning.
-- Simple integration: call `calculate_movement(delta)` and apply to your player `position` or `velocity`.
+- Simple integration: use `calculate_velocity()` for physics bodies or `calculate_movement(delta)` for direct position updates.
 
 ## Compatibility
 
@@ -26,7 +26,7 @@ Copy the `addons/nildevgames_directional_movement_2d` folder into your project's
 ## Quick Start
 
 1. Add `NilDevMovement2D` to your player scene as a child node. The node script is located at `addons/nildevgames_directional_movement_2d/movement_2d.gd`.
-2. In your player's `_physics_process(delta)` use `calculate_movement(delta)` to get a movement vector and apply it.
+2. In your player's `_physics_process(delta)`, use `calculate_velocity()` for `CharacterBody2D` movement or `calculate_movement(delta)` when you want per-frame displacement for a plain `Node2D`.
 
 Example integration (character code):
 
@@ -36,14 +36,11 @@ extends CharacterBody2D
 @onready var mover := $NilDevMovement2D
 
 func _physics_process(delta: float) -> void:
-	# `calculate_movement(delta)` returns a frame displacement (pixels to move this frame).
-	# Physics APIs like `move_and_slide()` expect a velocity (pixels/sec), so convert displacement -> velocity.
-	var displacement: Vector2 = mover.calculate_movement(delta)
-	velocity = displacement / delta if delta > 0.0 else Vector2.ZERO
+	velocity = mover.calculate_velocity()
 	move_and_slide()
 ```
 
-Or a simpler `position`-based example for Node2D players:
+For `Node2D` players or any manual position update, use the displacement-oriented helper instead:
 
 ```gdscript
 extends Node2D
@@ -95,7 +92,8 @@ Node: `NilDevMovement2D` (`addons/nildevgames_directional_movement_2d/movement_2
 	- Mouse/Touch tuning: `*_deadzone`, `*_max_radius`, `*_stop_drag_if_input_stopped`, `*_motion_timeout` (grouped per input type).
 - Methods:
 	- `get_input_vector() -> Vector2` — current input direction vector (normalized where appropriate).
-	- `calculate_movement(delta: float) -> Vector2` — updates internal velocity and returns movement for this frame.
+	- `calculate_velocity() -> Vector2` — updates internal velocity and returns pixels-per-second velocity for physics-driven nodes such as `CharacterBody2D`.
+	- `calculate_movement(delta: float) -> Vector2` — updates internal velocity and returns frame displacement, equivalent to `calculate_velocity() * delta` for the sampled input.
 - Getters (useful):
 	- `velocity` — current velocity Vector2.
 	- `movement_type` — enum (`STOPPED`, `HORIZONTAL`, `VERTICAL`).
@@ -177,9 +175,9 @@ Canonical test-based examples live under `tests/unit/` and show how to simulate 
 
 A runnable repository example lives under `examples/`:
 - [examples/player_example.tscn](examples/player_example.tscn) — minimal `Node2D` integration and the default main scene for this repository project.
-- [examples/player_example.gd](examples/player_example.gd) — script for the position-based `Node2D` demo.
-- [examples/player_character_body_example.tscn](examples/player_character_body_example.tscn) — `CharacterBody2D` demo using `velocity` plus `move_and_slide()`.
-- [examples/player_character_body_example.gd](examples/player_character_body_example.gd) — script for the physics-body demo.
+- [examples/player_example.gd](examples/player_example.gd) — script for the displacement-based `Node2D` demo using `calculate_movement(delta)`.
+- [examples/player_character_body_example.tscn](examples/player_character_body_example.tscn) — `CharacterBody2D` demo using `calculate_velocity()` plus `move_and_slide()`.
+- [examples/player_character_body_example.gd](examples/player_character_body_example.gd) — script for the velocity-based physics-body demo.
 
 Both runnable examples include a live performance panel that shows the whole demo scene's FPS, renderer/GPU information, RAM/VRAM usage, script frame time, fixed physics step time, 2D canvas draw stats, and GPU render-budget load. The panel is there to make the addon's runtime footprint obvious in practice without implying a synthetic "CPU load": `NilDevMovement2D` only resolves an input vector and applies scalar math each frame, so the example stays well within budget unless the surrounding scene work is the bottleneck.
 

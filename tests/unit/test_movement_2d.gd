@@ -430,6 +430,61 @@ func test_auto_returns_zero_when_no_input():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# calculate_velocity
+# ═══════════════════════════════════════════════════════════════════════════════
+
+func test_calculate_velocity_zero_input():
+	var result = _node.calculate_velocity()
+	assert_eq(result, Vector2.ZERO, "Zero input → zero velocity")
+	assert_eq(_node.velocity, Vector2.ZERO, "velocity getter should stay zero")
+
+func test_calculate_velocity_with_input():
+	_node.speed = 200.0
+	Input.action_press(ACTION_RIGHT)
+	var result = _node.calculate_velocity()
+	assert_almost_eq(result, Vector2(200.0, 0.0), Vector2(0.001, 0.001),
+		"calculate_velocity returns pixels/sec without delta scaling")
+	assert_almost_eq(_node.velocity, result, Vector2(0.001, 0.001),
+		"velocity getter should match the latest calculate_velocity result")
+
+func test_calculate_velocity_cardinal_diagonal_uses_per_axis_speeds():
+	_node.speed_mode = NilDevSpeedMode.Mode.CARDINAL
+	_node.cardinal_speed_right = 300.0
+	_node.cardinal_speed_down = 120.0
+	Input.action_press(ACTION_RIGHT)
+	Input.action_press(ACTION_DOWN)
+	var result = _node.calculate_velocity()
+	var input_vec = Vector2(1, 1).normalized()
+	var expected_velocity = Vector2(input_vec.x * 300.0, input_vec.y * 120.0)
+	assert_almost_eq(result, expected_velocity, Vector2(0.1, 0.1))
+	assert_almost_eq(_node.velocity, expected_velocity, Vector2(0.1, 0.1))
+
+func test_calculate_velocity_matches_movement_scaled_by_delta():
+	_node.speed = 160.0
+	Input.action_press(ACTION_UP)
+	var velocity_result = _node.calculate_velocity()
+	var delta = 0.25
+	var movement_result = _node.calculate_movement(delta)
+	assert_almost_eq(movement_result, velocity_result * delta, Vector2(0.001, 0.001),
+		"calculate_movement should stay equivalent to calculate_velocity * delta")
+	assert_almost_eq(_node.velocity, velocity_result, Vector2(0.001, 0.001),
+		"calculate_movement should preserve the same sampled velocity under unchanged input")
+
+func test_calculate_velocity_tracks_latest_input():
+	_node.speed = 200.0
+	Input.action_press(ACTION_RIGHT)
+	var right_velocity = _node.calculate_velocity()
+	Input.action_release(ACTION_RIGHT)
+	Input.action_press(ACTION_LEFT)
+	var left_velocity = _node.calculate_velocity()
+	assert_almost_eq(right_velocity, Vector2(200.0, 0.0), Vector2(0.001, 0.001))
+	assert_almost_eq(left_velocity, Vector2(-200.0, 0.0), Vector2(0.001, 0.001),
+		"calculate_velocity should reflect the most recent input state")
+	assert_almost_eq(_node.velocity, left_velocity, Vector2(0.001, 0.001),
+		"velocity getter should track the latest calculate_velocity call")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # calculate_movement
 # ═══════════════════════════════════════════════════════════════════════════════
 

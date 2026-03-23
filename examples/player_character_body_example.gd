@@ -17,8 +17,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	var displacement := mover.calculate_movement(delta)
-	velocity = displacement / delta if delta > 0.0 else Vector2.ZERO
+	velocity = mover.calculate_velocity()
 	move_and_slide()
 	_clamp_to_viewport()
 	if velocity != Vector2.ZERO:
@@ -34,7 +33,7 @@ func _clamp_to_viewport() -> void:
 
 func _update_status() -> void:
 	var input_vector := mover.get_input_vector()
-	status_label.text = "CharacterBody2D example\nMove: WASD / Arrow keys\nDrag: Left mouse button or touch\nInput: (%.2f, %.2f)\nVelocity: (%.1f, %.1f)\n\n%s" % [
+	status_label.text = "CharacterBody2D example\nMovement API: calculate_velocity()\nMove: WASD / Arrow keys\nDrag: Left mouse button or touch\nInput: (%.2f, %.2f)\nVelocity: (%.1f, %.1f)\n\n%s" % [
 		input_vector.x,
 		input_vector.y,
 		velocity.x,
